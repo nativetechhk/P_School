@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireStaff, unauthorized, forbidden } from '@/lib/session';
 import { bulkGenerate, resetPassword } from '@/lib/accounts';
+import { storage } from '@/lib/storage';
 import { audit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
@@ -55,9 +56,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
   if (action === 'delete') {
-    await prisma.artifact.deleteMany({ where: { studentId: String(body.studentId) } });
-    await prisma.student.delete({ where: { id: String(body.studentId) } });
-    await audit(staff.username!, 'delete_student', String(body.studentId));
+    const sid = String(body.studentId);
+    const arts = await prisma.artifact.findMany({ where: { studentId: sid }, select: { filePath: true, thumbPath: true } });
+    for (const a of arts) {
+      await storage.remove(a.filePath);
+      if (a.thumbPath) await storage.remove(a.thumbPath);
+    }
+    await prisma.$transaction([
+      prisma.artifact.deleteMany({ where: { studentId: sid } }),
+      prisma.job.deleteMany({ where: { studentId: sid } }),
+      prisma.quotaUsage.deleteMany({ where: { studentId: sid } }),
+      prisma.dailyUsage.deleteMany({ where: { studentId: sid } }),
+      prisma.student.delete({ where: { id: sid } }),
+    ]);
+    await audit(staff.username!, 'delete_student', sid);
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ ok: false, error: '未知操作' }, { status: 400 });

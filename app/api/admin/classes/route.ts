@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireStaff, unauthorized, forbidden } from '@/lib/session';
 import { audit } from '@/lib/audit';
+import { storage } from '@/lib/storage';
 import { LESSONS } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,22 @@ export async function DELETE(req: NextRequest) {
   if (!staff) return forbidden();
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ ok: false, error: '缺少 id' }, { status: 400 });
-  await prisma.class.delete({ where: { id } });
+  // artifacts/jobs/quota 無 FK cascade，需手動清理（連同磁碟檔案），避免孤兒資料
+  const artifacts = await prisma.artifact.findMany({ where: { classId: id }, select: { filePath: true, thumbPath: true } });
+  for (const a of artifacts) {
+    await storage.remove(a.filePath);
+    if (a.thumbPath) await storage.remove(a.thumbPath);
+  }
+  const studentIds = (await prisma.student.findMany({ where: { classId: id }, select: { id: true } })).map((s) => s.id);
+  await prisma.$transaction([
+    prisma.artifact.deleteMany({ where: { classId: id } }),
+    prisma.job.deleteMany({ where: { classId: id } }),
+    ...(studentIds.length ? [
+      prisma.quotaUsage.deleteMany({ where: { studentId: { in: studentIds } } }),
+      prisma.dailyUsage.deleteMany({ where: { studentId: { in: studentIds } } }),
+    ] : []),
+    prisma.class.delete({ where: { id } }), // students cascade via FK
+  ]);
   await audit(staff.username!, 'delete_class', id);
   return NextResponse.json({ ok: true });
 }
