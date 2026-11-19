@@ -1,8 +1,6 @@
 // 輸入安全（§7）：黑名單（含簡繁變體）→ 人類主體詞攔截
 import { prisma } from './db';
-// opencc-js 無型別定義
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const OpenCC = require('opencc-js');
+import * as OpenCC from 'opencc-js';
 
 const toTrad: (s: string) => string = OpenCC.Converter({ from: 'cn', to: 'hk' });
 const toSimp: (s: string) => string = OpenCC.Converter({ from: 'hk', to: 'cn' });

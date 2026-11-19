@@ -32,7 +32,8 @@ export const LESSONS: LessonDef[] = [
   },
   {
     id: 'junior-l4-style', group: 'junior', lessonNo: 4, title: '名畫風寵物',
-    kind: 'edit', aspect: 'keep', consumes: ['pet_original'], produces: ['pet_original', 'styled_pet'], defaultQuota: 6,
+    // pet_original 由上載建立（非 AI 生成）；AI 編輯輸出為 styled_pet，故 produces[0] 必須係 styled_pet
+    kind: 'edit', aspect: 'keep', consumes: ['pet_original'], produces: ['styled_pet'], defaultQuota: 6,
   },
   {
     id: 'junior-l5-palette', group: 'junior', lessonNo: 5, title: '顏色配方',

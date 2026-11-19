@@ -45,7 +45,11 @@ export async function POST(req: NextRequest) {
 
   if (!isDemo) {
     const quota = await getQuotaState(student!.id!, classId, lessonId);
-    if (!quota.canGenerate) return NextResponse.json({ ok: false, error: quota.reason }, { status: 429 });
+    if (!quota.canGenerate) {
+      // 課堂未開放 → 403；配額／冷卻／每日上限 → 429
+      const status = quota.reason === '本節未開放' ? 403 : 429;
+      return NextResponse.json({ ok: false, error: quota.reason }, { status });
+    }
     if (!(await checkGlobalDailyCap())) return NextResponse.json({ ok: false, error: '今日全校生成已達上限' }, { status: 429 });
   }
 
