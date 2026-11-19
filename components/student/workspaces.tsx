@@ -67,6 +67,7 @@ export function GenerateWorkspace({ meta, optionSetsRaw }: { meta: LessonMeta; o
   const [jobId, setJobId] = useState<string | null>(null);
   const [resultIds, setResultIds] = useState<string[]>([]);
   const [err, setErr] = useState('');
+  const [blocked, setBlocked] = useState('');
   const [quota, setQuota] = useState(meta.quota);
   const [activeAct, setActiveAct] = useState(meta.actSlots?.[0]?.id ?? null);
 
@@ -79,18 +80,41 @@ export function GenerateWorkspace({ meta, optionSetsRaw }: { meta: LessonMeta; o
   }, [meta.id]);
 
   async function generate() {
-    setErr('');
+    setErr(''); setBlocked('');
+    const role = meta.actSlots ? activeAct! : undefined;
     try {
-      const role = meta.actSlots ? activeAct! : undefined;
-      const r = await api<{ jobId: string }>('/api/generate/image', {
+      const r = await api<{ ok: boolean; jobId?: string; error?: string; blocked?: boolean }>('/api/generate/image', {
         json: { lessonId: meta.id, slots: sel, freeTexts, role },
       });
-      setJobId(r.jobId); setResultIds([]);
-    } catch (e) { setErr((e as Error).message); }
+      if (r.ok === false) {
+        if (r.blocked) setBlocked(r.error || '呢個字唔可以用呀，試下第二個！');
+        else setErr(r.error || '生成失敗');
+        return;
+      }
+      setJobId(r.jobId!); setResultIds([]);
+    } catch (e) {
+      const er = e as { message: string; data?: { blocked?: boolean; error?: string } };
+      if (er.data?.blocked) setBlocked(er.data.error || er.message);
+      else setErr(er.message);
+    }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* 黑名單／人類詞攔截的顯眼提示（§4.2） */}
+      {blocked && (
+        <div role="alert" className="flyin" style={{
+          background: 'linear-gradient(160deg,#fff3cd,#ffd5d5)', border: '3px solid var(--color-danger)',
+          borderRadius: 18, padding: 18, display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <span style={{ fontSize: 40 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 22 }}>{blocked}</div>
+            <div style={{ color: 'var(--color-muted)' }}>你輸入嘅字唔可以用，換個講法再試啦 🐱🦄</div>
+          </div>
+          <button className="btn secondary" onClick={() => setBlocked('')}>知道喇</button>
+        </div>
+      )}
       <QuotaBar quota={quota} />
       {meta.consumes.includes('character') && (
         <details className="card">

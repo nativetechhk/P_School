@@ -9,8 +9,10 @@ interface Usage {
   queue: { queued: number; active: number; done24: number; failed24: number; errorRate: number };
   rpm: { used: number; limit: number };
   health: { redis: boolean; db: boolean; mockAi: boolean; geminiKey?: string };
-  settings: { costPerImageUsd: number; dailyCapGlobal: number };
+  settings: { costPerImageUsd: number; dailyCapGlobal: number; dailyCapPerAccount: number };
+  byStudent: StudentUsage[];
 }
+interface StudentUsage { id: string; username: string; className: string; group: string; active: boolean; lessonUsedTotal: number; todayCount: number; artifacts: number }
 
 function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -58,7 +60,7 @@ export default function UsagePage() {
         <button className="btn" style={{ marginTop: 12 }} onClick={warmup} disabled={warming}>{warming ? '預熱中…' : '🔥 預熱（送測試請求）'}</button>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ marginBottom: 16 }}>
         <h3>近 7 日</h3>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr style={{ textAlign: 'left', color: 'var(--color-muted)' }}><th>日期</th><th>生圖</th><th>編輯</th><th>費用</th></tr></thead>
@@ -72,6 +74,58 @@ export default function UsagePage() {
           </tbody>
         </table>
       </div>
+
+      <StudentUsageTable rows={u.byStudent} dailyCap={u.settings.dailyCapPerAccount} />
+    </div>
+  );
+}
+
+function StudentUsageTable({ rows, dailyCap }: { rows: StudentUsage[]; dailyCap: number }) {
+  const [cls, setCls] = useState('');
+  const classes = Array.from(new Set(rows.map((r) => r.className))).sort();
+  const filtered = cls ? rows.filter((r) => r.className === cls) : rows;
+  const totalToday = filtered.reduce((a, r) => a + r.todayCount, 0);
+  const totalArtifacts = filtered.reduce((a, r) => a + r.artifacts, 0);
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0 }}>每個學生帳號用量</h3>
+        <select className="field" style={{ maxWidth: 220, minHeight: 44 }} value={cls} onChange={(e) => setCls(e.target.value)}>
+          <option value="">全部班別（{rows.length} 個帳號）</option>
+          {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <span style={{ marginLeft: 'auto', fontWeight: 700 }}>
+          今日合計 <span style={{ color: 'var(--color-accent)' }}>{totalToday}</span> 次 · 累計作品 {totalArtifacts} 張
+        </span>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+        <thead>
+          <tr style={{ textAlign: 'left', color: 'var(--color-muted)' }}>
+            <th style={{ padding: '6px 0' }}>帳號</th><th>班別</th><th>今日次數</th><th>累計生成</th><th>累計作品</th><th>狀態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((r) => (
+            <tr key={r.id} style={{ borderTop: '1px solid #eee' }}>
+              <td style={{ padding: '8px 0', fontWeight: 700 }}>{r.username}</td>
+              <td>{r.className}</td>
+              <td style={{ color: r.todayCount >= dailyCap ? 'var(--color-danger)' : 'inherit', fontWeight: r.todayCount >= dailyCap ? 800 : 400 }}>
+                {r.todayCount} / {dailyCap}{r.todayCount >= dailyCap ? ' ⚠️用盡' : ''}
+              </td>
+              <td>{r.lessonUsedTotal}</td>
+              <td>{r.artifacts}</td>
+              <td>{r.active ? '✅' : '🚫停用'}</td>
+            </tr>
+          ))}
+          {!filtered.length && <tr><td colSpan={6} style={{ padding: 16, color: 'var(--color-muted)' }}>未有帳號</td></tr>}
+        </tbody>
+        <tfoot>
+          <tr style={{ borderTop: '2px solid #ddd', fontWeight: 800 }}>
+            <td style={{ padding: '8px 0' }}>今日合計</td><td></td><td style={{ color: 'var(--color-accent)' }}>{totalToday} 次</td><td></td><td>{totalArtifacts} 張</td><td></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
