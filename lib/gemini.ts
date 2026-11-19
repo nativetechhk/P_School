@@ -1,13 +1,16 @@
 // Gemini Developer API（@google/genai）。無 key 時走 MOCK 模式。
+// key 由 lib/ai-key 解析（admin dashboard 可改，DB 優先、env 後備）。
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
-import { IS_MOCK_AI } from './config';
+import { getGeminiKey, isMockAi } from './ai-key';
 
-let _ai: GoogleGenAI | null = null;
+let _ai: { key: string; client: GoogleGenAI } | null = null;
 
-export function ai(): GoogleGenAI {
-  if (!_ai) _ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-  return _ai;
+async function ai(): Promise<GoogleGenAI> {
+  const key = await getGeminiKey();
+  if (!key) throw new Error('GEMINI_API_KEY 未設定');
+  if (!_ai || _ai.key !== key) _ai = { key, client: new GoogleGenAI({ apiKey: key }) };
+  return _ai.client;
 }
 
 const SAFETY_SETTINGS = [
@@ -50,7 +53,7 @@ async function mockImage(args: GenerateImageArgs): Promise<Buffer> {
 
 /** 生成 1 張圖（Gemini 圖像模型每請求只回 1 張，§4.3a）。回傳 PNG buffer。 */
 export async function generateImage(args: GenerateImageArgs): Promise<Buffer> {
-  if (IS_MOCK_AI) {
+  if (await isMockAi()) {
     if (args.referenceImage) {
       // mock edit：將原圖染色，模擬風格轉換
       const src = Buffer.from(args.referenceImage.data, 'base64');
@@ -61,8 +64,9 @@ export async function generateImage(args: GenerateImageArgs): Promise<Buffer> {
     return mockImage(args);
   }
 
+  const client = await ai();
   if (args.model.startsWith('imagen')) {
-    const res = await ai().models.generateImages({
+    const res = await client.models.generateImages({
       model: args.model,
       prompt: args.prompt,
       config: { numberOfImages: 1, aspectRatio: args.aspect === 'keep' ? '1:1' : args.aspect },
@@ -76,7 +80,7 @@ export async function generateImage(args: GenerateImageArgs): Promise<Buffer> {
   if (args.referenceImage) {
     contents.push({ inlineData: { mimeType: args.referenceImage.mimeType, data: args.referenceImage.data } });
   }
-  const res = await ai().models.generateContent({
+  const res = await client.models.generateContent({
     model: args.model,
     contents: contents as never,
     config: {
@@ -95,13 +99,14 @@ export async function generateImage(args: GenerateImageArgs): Promise<Buffer> {
 
 /** 文字任務（gemini-2.5-flash）。mock 模式回傳簡單結果。 */
 export async function generateText(model: string, prompt: string): Promise<string> {
-  if (IS_MOCK_AI) {
+  if (await isMockAi()) {
     if (prompt.includes('JSON')) {
       return JSON.stringify({ title: '我的 AI 故事', pages: ['主角出場啦！', '佢去咗一個神奇地方。', '突然遇到大危機！', '佢勇敢咁解決咗。', ''] });
     }
     return '（MOCK 文字結果）';
   }
-  const res = await ai().models.generateContent({ model, contents: prompt });
+  const client = await ai();
+  const res = await client.models.generateContent({ model, contents: prompt });
   return res.text ?? '';
 }
 
@@ -112,7 +117,7 @@ export async function matchVoiceToOptions(
   matchTemplate: string,
   model: string
 ): Promise<string[]> {
-  if (IS_MOCK_AI) {
+  if (await isMockAi()) {
     const scored = options
       .map((o) => ({ id: o.id, score: [...transcript].filter((ch) => o.label.includes(ch)).length }))
       .sort((a, b) => b.score - a.score);

@@ -1,12 +1,8 @@
 // Cloud Vision REST API（§8）：SafeSearch 複檢 + Image Properties 主色
 import sharp from 'sharp';
-import { IS_MOCK_AI } from './config';
+import { getGoogleKey, isMockAi } from './ai-key';
 
 const VISION_URL = 'https://vision.googleapis.com/v1/images:annotate';
-
-function apiKey() {
-  return process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
-}
 
 export type SafeSearchVerdict = { safe: boolean; detail?: Record<string, string> };
 
@@ -14,8 +10,9 @@ const BAD = ['LIKELY', 'VERY_LIKELY'];
 
 /** 輸出複檢：adult/violence/racy 等任何一項 LIKELY+ → 不安全（自動隱藏入待檢視） */
 export async function safeSearchCheck(png: Buffer): Promise<SafeSearchVerdict> {
-  if (IS_MOCK_AI || !apiKey()) return { safe: true, detail: { mock: 'skipped' } };
-  const res = await fetch(`${VISION_URL}?key=${apiKey()}`, {
+  const key = await getGoogleKey();
+  if ((await isMockAi()) || !key) return { safe: true, detail: { mock: 'skipped' } };
+  const res = await fetch(`${VISION_URL}?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -33,8 +30,9 @@ export type Color = { hex: string; r: number; g: number; b: number };
 
 /** 5 主色（junior-l5）。無 key 時用 sharp 取樣本地計算。 */
 export async function dominantColors(png: Buffer): Promise<Color[]> {
-  if (!IS_MOCK_AI && apiKey()) {
-    const res = await fetch(`${VISION_URL}?key=${apiKey()}`, {
+  const key = await getGoogleKey();
+  if (!(await isMockAi()) && key) {
+    const res = await fetch(`${VISION_URL}?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

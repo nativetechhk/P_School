@@ -8,7 +8,7 @@ interface Usage {
   week: { date: string; images: number; edits: number; cost: number }[];
   queue: { queued: number; active: number; done24: number; failed24: number; errorRate: number };
   rpm: { used: number; limit: number };
-  health: { redis: boolean; db: boolean; mockAi: boolean };
+  health: { redis: boolean; db: boolean; mockAi: boolean; geminiKey?: string };
   settings: { costPerImageUsd: number; dailyCapGlobal: number };
 }
 
@@ -53,7 +53,7 @@ export default function UsagePage() {
         <div style={{ display: 'flex', gap: 20, fontSize: 18 }}>
           <span>{u.health.db ? '✅' : '❌'} Postgres</span>
           <span>{u.health.redis ? '✅' : '❌'} Redis</span>
-          <span>{u.health.mockAi ? '🧪 MOCK 模式（未設 GEMINI_API_KEY）' : '✅ Gemini'}</span>
+          <span>{u.health.mockAi ? '🧪 MOCK 模式（後台未設 API key）' : `✅ Gemini（${u.health.geminiKey || '已設定'}）`}</span>
         </div>
         <button className="btn" style={{ marginTop: 12 }} onClick={warmup} disabled={warming}>{warming ? '預熱中…' : '🔥 預熱（送測試請求）'}</button>
       </div>

@@ -1,0 +1,21 @@
+[Unit]
+Description=P_School — AI Class Platform Web (Next.js standalone)
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=pschool
+WorkingDirectory=/opt/pschool
+# standalone server；靜態與 public 已於部署時複製進 .next/standalone
+ExecStart=/usr/bin/node /opt/pschool/.next/standalone/server.js
+EnvironmentFile=/opt/pschool/.env
+Environment=PORT=3210
+Environment=HOSTNAME=127.0.0.1
+Restart=on-failure
+RestartSec=3
+# 作品／匯出檔寫入限定目錄
+ReadWritePaths=/opt/pschool/data
+
+[Install]
+WantedBy=multi-user.target

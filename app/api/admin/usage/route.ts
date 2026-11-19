@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireStaff, unauthorized } from '@/lib/session';
 import { getSettings } from '@/lib/settings';
-import { hkToday, IS_MOCK_AI } from '@/lib/config';
+import { hkToday } from '@/lib/config';
+import { isMockAi, getGeminiKey, maskKey } from '@/lib/ai-key';
 import { redis } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export async function GET() {
     week: week.map((w) => ({ date: w.date, images: w.images, edits: w.edits, cost: w.estCostUsd })),
     queue: { queued, active, done24, failed24, errorRate: done24 + failed24 ? failed24 / (done24 + failed24) : 0 },
     rpm: { used: rpmUsed, limit: settings.globalRpm },
-    health: { redis: redisOk, db: dbOk, mockAi: IS_MOCK_AI },
+    health: { redis: redisOk, db: dbOk, mockAi: await isMockAi(), geminiKey: maskKey(await getGeminiKey()) },
     settings: { costPerImageUsd: settings.costPerImageUsd, dailyCapGlobal: settings.dailyCapGlobal },
   });
 }

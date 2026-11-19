@@ -1,35 +1,81 @@
-# Cloudflare（橙雲）→ Caddy → web:3000（§11.4）
-# 把 your-subdomain.example.com 換成你的 subdomain。
-# 方案 A（最省事）：Caddy 用 Let's Encrypt 自動 TLS（需先灰雲驗證再轉橙雲）
-# 方案 B：用 Cloudflare Origin Certificate，將 tls 指向憑證檔。
+# pschool.nativel.ink — Cloudflare（proxied, Full strict）→ Caddy → Next.js:3210
+#
+# 本檔適用兩種部署：
+#  (A) 自架整套 Docker（含本倉 caddy 容器）：reverse_proxy 指向 web:3000。
+#  (B) 併入現有伺服器的系統 Caddy（本專案實際部署方式）：此區塊加進
+#      /etc/caddy/Caddyfile，reverse_proxy 指向 127.0.0.1:3210（systemd 跑 Next.js）。
+#
+# TLS 用 Cloudflare Origin Certificate（與同機其他 *.nativel.ink 站共用），
+# 並以 Cloudflare IP 白名單限制來源（非 CF 直連 → 403）。
 
-your-subdomain.example.com {
+pschool.nativel.ink {
+	tls /etc/ssl/cloudflare-origin/fullchain.pem /etc/ssl/cloudflare-origin/privkey.pem
+
 	encode zstd gzip
 
-	# SSE 不可緩衝
-	@sse path /api/events*
-	reverse_proxy @sse web:3000 {
-		flush_interval -1
+	# 來源必須係 Cloudflare IP
+	@cf {
+		remote_ip 173.245.48.0/20
+		remote_ip 103.21.244.0/22
+		remote_ip 103.22.200.0/22
+		remote_ip 103.31.4.0/22
+		remote_ip 141.101.64.0/18
+		remote_ip 108.162.192.0/18
+		remote_ip 190.93.240.0/20
+		remote_ip 188.114.96.0/20
+		remote_ip 197.234.240.0/22
+		remote_ip 198.41.128.0/17
+		remote_ip 162.158.0.0/15
+		remote_ip 104.16.0.0/13
+		remote_ip 104.24.0.0/14
+		remote_ip 172.64.0.0/13
+		remote_ip 131.0.72.0/22
+		remote_ip 2400:cb00::/32
+		remote_ip 2606:4700::/32
+		remote_ip 2803:f800::/32
+		remote_ip 2405:b500::/32
+		remote_ip 2405:8100::/32
+		remote_ip 2a06:98c0::/29
+		remote_ip 2c0f:f248::/32
 	}
 
-	reverse_proxy web:3000
+	handle @cf {
+		# SSE（/api/events）需停用緩衝，否則作品牆推送會延遲
+		@sse path /api/events*
+		reverse_proxy @sse 127.0.0.1:3210 {
+			flush_interval -1
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up Host {host}
+		}
+		reverse_proxy 127.0.0.1:3210 {
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up Host {host}
+		}
+	}
+
+	# 非 Cloudflare 直連 → 403
+	respond 403
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "camera=(), geolocation=()"
+		X-Content-Type-Options    "nosniff"
+		X-Frame-Options           "DENY"
+		Referrer-Policy           "strict-origin-when-cross-origin"
+		Permissions-Policy        "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
 
 	request_body {
 		max_size 100MB
 	}
-}
 
-# 方案 B 範例（Origin Certificate）：
-# your-subdomain.example.com {
-#   tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
-#   reverse_proxy web:3000
-# }
+	log {
+		output file /var/log/caddy/pschool.log {
+			roll_size 20MB
+			roll_keep 10
+		}
+		format json
+	}
+}

@@ -72,4 +72,4 @@ export function hkToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: HK_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
-export const IS_MOCK_AI = !process.env.GEMINI_API_KEY;
+// MOCK 判斷已改為動態（見 lib/ai-key isMockAi），因 key 可於 admin dashboard 設定。

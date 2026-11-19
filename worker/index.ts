@@ -12,7 +12,8 @@ import { publishEvent } from '../lib/events';
 import { refundQuota } from '../lib/quota';
 import { getSettings } from '../lib/settings';
 import { acquire } from '../lib/token-bucket';
-import { hkToday, IS_MOCK_AI } from '../lib/config';
+import { hkToday } from '../lib/config';
+import { isMockAi } from '../lib/ai-key';
 import { startCron } from './cron';
 
 const connection = newRedis();
@@ -33,7 +34,8 @@ async function generateOne(data: GenerateJobData, model: string, fallbackModel: 
 
   const bucket = model.startsWith('imagen') ? 'imagen' : 'gemini';
   const rpm = bucket === 'imagen' ? imagenRpm : globalRpm;
-  if (!IS_MOCK_AI && !(await acquire(connection, bucket, rpm))) {
+  const mock = await isMockAi();
+  if (!mock && !(await acquire(connection, bucket, rpm))) {
     throw new Error('TOKEN_BUCKET_TIMEOUT');
   }
 
@@ -49,7 +51,7 @@ async function generateOne(data: GenerateJobData, model: string, fallbackModel: 
   }
   // 備用模型（僅文生圖，§6.3）
   if (!ref && fallbackModel && fallbackModel !== model) {
-    if (!IS_MOCK_AI) await acquire(connection, 'imagen', imagenRpm);
+    if (!mock) await acquire(connection, 'imagen', imagenRpm);
     return generateImage({ model: fallbackModel, prompt: data.promptSent, aspect: data.aspect });
   }
   throw lastErr;
@@ -128,7 +130,7 @@ const worker = new Worker<GenerateJobData>(
   { connection, concurrency: Number(process.env.WORKER_CONCURRENCY ?? 3) }
 );
 
-worker.on('ready', () => console.log(`[worker] ready (mock=${IS_MOCK_AI}, concurrency=${process.env.WORKER_CONCURRENCY ?? 3})`));
+worker.on('ready', async () => console.log(`[worker] ready (mock=${await isMockAi()}, concurrency=${process.env.WORKER_CONCURRENCY ?? 3})`));
 startCron();
 worker.on('failed', (job, err) => console.error(`[worker] job ${job?.id} failed:`, err.message));
 worker.on('completed', (job) => console.log(`[worker] job ${job.id} done`));

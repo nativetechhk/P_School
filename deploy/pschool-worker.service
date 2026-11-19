@@ -1,0 +1,18 @@
+[Unit]
+Description=P_School — AI Class Platform Worker (BullMQ)
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=pschool
+WorkingDirectory=/opt/pschool
+ExecStart=/usr/bin/node /opt/pschool/dist/worker.js
+EnvironmentFile=/opt/pschool/.env
+Environment=WORKER_CONCURRENCY=3
+Restart=on-failure
+RestartSec=3
+ReadWritePaths=/opt/pschool/data
+
+[Install]
+WantedBy=multi-user.target
