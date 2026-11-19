@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 .env
-data/
+# 只忽略根目錄的儲存目錄；無錨點的 "data/" 會誤殺 app/admin/data、app/api/admin/data
+/data/
 *.log
 .DS_Store
