@@ -1,0 +1,61 @@
+# 本機開發／測試用（§8）。生產見 docker-compose.prod.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aiclass
+      POSTGRES_PASSWORD: aiclass
+      POSTGRES_DB: ai_class
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiclass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+
+  web:
+    build: { context: ., dockerfile: docker/Dockerfile }
+    command: sh -c "node_modules/.bin/prisma migrate deploy && node server.js"
+    environment:
+      DATABASE_URL: postgresql://aiclass:aiclass@postgres:5432/ai_class
+      REDIS_URL: redis://redis:6379
+      STORAGE_PATH: /data/uploads
+      APP_URL: http://localhost:3000
+      SESSION_SECRET: ${SESSION_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      COOKIE_SECURE: "false"
+      CHROME_PATH: /usr/bin/chromium
+    ports: ["3000:3000"]
+    volumes: ["uploads:/data/uploads"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    build: { context: ., dockerfile: docker/Dockerfile }
+    command: node dist/worker.js
+    environment:
+      DATABASE_URL: postgresql://aiclass:aiclass@postgres:5432/ai_class
+      REDIS_URL: redis://redis:6379
+      STORAGE_PATH: /data/uploads
+      SESSION_SECRET: ${SESSION_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      WORKER_CONCURRENCY: "3"
+      CHROME_PATH: /usr/bin/chromium
+    volumes: ["uploads:/data/uploads"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:

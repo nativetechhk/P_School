@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Class {
+  id        String    @id @default(cuid())
+  name      String
+  group     String // 'junior' | 'senior'
+  note      String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  students  Student[]
+
+  @@map("classes")
+}
+
+model Student {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  passwordHash   String    @map("password_hash")
+  classId        String    @map("class_id")
+  class          Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  group          String // 'junior' | 'senior'
+  nickname       String?
+  active         Boolean   @default(true)
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedUntil    DateTime? @map("locked_until")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  // 派發卡需要明文密碼（只存 admin 可見的初始密碼；學生改密後清空）
+  initialPassword String?  @map("initial_password")
+
+  @@map("students")
+}
+
+model Staff {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String // 'admin' | 'assistant'
+  totpSecret   String?  @map("totp_secret")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("staff")
+}
+
+model StaffClass {
+  staffId String @map("staff_id")
+  classId String @map("class_id")
+
+  @@id([staffId, classId])
+  @@map("staff_classes")
+}
+
+model LessonAccess {
+  classId         String    @map("class_id")
+  lessonId        String    @map("lesson_id")
+  enabled         Boolean   @default(false)
+  quotaPerStudent Int       @default(10) @map("quota_per_student")
+  cooldownSeconds Int       @default(60) @map("cooldown_seconds")
+  openedAt        DateTime? @map("opened_at")
+  closedAt        DateTime? @map("closed_at")
+
+  @@id([classId, lessonId])
+  @@map("lesson_access")
+}
+
+model QuotaUsage {
+  studentId       String    @map("student_id")
+  lessonId        String    @map("lesson_id")
+  used            Int       @default(0)
+  bonus           Int       @default(0)
+  lastGeneratedAt DateTime? @map("last_generated_at")
+
+  @@id([studentId, lessonId])
+  @@map("quota_usage")
+}
+
+model DailyUsage {
+  studentId String @map("student_id")
+  date      String // YYYY-MM-DD（香港時區）
+  count     Int    @default(0)
+
+  @@id([studentId, date])
+  @@map("daily_usage")
+}
+
+model Artifact {
+  id                String   @id @default(cuid())
+  studentId         String   @map("student_id")
+  classId           String   @map("class_id")
+  lessonId          String   @map("lesson_id")
+  role              String // character | character_card | scene_1/2/3 | styled | pet_original | styled_pet | palette | coloring | poster | storybook | demo
+  type              String // image | pdf | json
+  promptZh          String?  @map("prompt_zh")
+  promptSent        String?  @map("prompt_sent")
+  templateVersion   Int?     @map("template_version")
+  sourceArtifactIds Json?    @map("source_artifact_ids")
+  model             String?
+  params            Json?
+  filePath          String   @map("file_path")
+  thumbPath         String?  @map("thumb_path")
+  status            String   @default("ok") // ok | hidden | review | deleted
+  favorite          Boolean  @default(false)
+  teacherHeart      Int      @default(0) @map("teacher_heart")
+  teacherNote       String?  @map("teacher_note")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([studentId, lessonId])
+  @@index([classId, lessonId, createdAt])
+  @@map("artifacts")
+}
+
+model Job {
+  id                String    @id @default(cuid())
+  studentId         String    @map("student_id")
+  classId           String    @map("class_id")
+  lessonId          String    @map("lesson_id")
+  kind              String // generate | edit | export
+  status            String    @default("queued") // queued | active | done | failed
+  position          Int?
+  resultArtifactIds Json?     @map("result_artifact_ids")
+  error             String?
+  payload           Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  finishedAt        DateTime? @map("finished_at")
+
+  @@index([status])
+  @@map("jobs")
+}
+
+model Blacklist {
+  id        String   @id @default(cuid())
+  term      String
+  mode      String   @default("block") // block | flag
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("blacklist")
+}
+
+model PromptTemplate {
+  id        String  @id @default(cuid())
+  level     String // global | lesson | option
+  lessonId  String? @map("lesson_id")
+  slot      String? // A | B | C | D | STYLE
+  setName   String? @map("set_name") // subjects_senior / environments / styles / masters ...
+  itemId    String? @map("item_id") // 種子檔內的 id，例如 s_dragon
+  labelZh   String? @map("label_zh")
+  promptZh  String? @map("prompt_zh") // option: 送模型文字；lesson: 模板字串；global: 不用
+  boostEn   String? @map("boost_en")
+  icon      String?
+  group     String? // junior | senior | both
+  enabled   Boolean @default(true)
+  sortOrder Int     @default(0) @map("sort_order")
+  version   Int     @default(1)
+  data      Json? // lesson 層：aspect/slots/slotLabels/optionSets/actSlots/textTasks/kind；global 層：prefix/suffix/negativeTerms/humanBlockTerms
+
+  @@unique([level, lessonId, setName, itemId])
+  @@map("prompt_templates")
+}
+
+model PromptTemplateHistory {
+  id         String   @id @default(cuid())
+  templateId String   @map("template_id")
+  snapshot   Json
+  savedBy    String?  @map("saved_by")
+  savedAt    DateTime @default(now()) @map("saved_at")
+
+  @@index([templateId, savedAt])
+  @@map("prompt_template_history")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}
+
+model UsageDaily {
+  date        String @id // YYYY-MM-DD
+  images      Int    @default(0)
+  edits       Int    @default(0)
+  visionCalls Int    @default(0) @map("vision_calls")
+  sttSeconds  Int    @default(0) @map("stt_seconds")
+  estCostUsd  Float  @default(0) @map("est_cost_usd")
+
+  @@map("usage_daily")
+}
+
+model Audit {
+  id     String   @id @default(cuid())
+  actor  String
+  action String
+  target String?
+  at     DateTime @default(now())
+
+  @@map("audit")
+}

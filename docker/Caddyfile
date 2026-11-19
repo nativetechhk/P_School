@@ -1,0 +1,35 @@
+# Cloudflare（橙雲）→ Caddy → web:3000（§11.4）
+# 把 your-subdomain.example.com 換成你的 subdomain。
+# 方案 A（最省事）：Caddy 用 Let's Encrypt 自動 TLS（需先灰雲驗證再轉橙雲）
+# 方案 B：用 Cloudflare Origin Certificate，將 tls 指向憑證檔。
+
+your-subdomain.example.com {
+	encode zstd gzip
+
+	# SSE 不可緩衝
+	@sse path /api/events*
+	reverse_proxy @sse web:3000 {
+		flush_interval -1
+	}
+
+	reverse_proxy web:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=()"
+		-Server
+	}
+
+	request_body {
+		max_size 100MB
+	}
+}
+
+# 方案 B 範例（Origin Certificate）：
+# your-subdomain.example.com {
+#   tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
+#   reverse_proxy web:3000
+# }

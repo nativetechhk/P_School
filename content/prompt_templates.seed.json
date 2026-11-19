@@ -1,0 +1,218 @@
+{
+  "_meta": {
+    "version": 1,
+    "description": "小小 AI 探索家 Prompt Engine 種子模板。首次啟動匯入 Firestore prompt_templates；admin 可在 /admin/prompts 逐項 enable／編輯。變數：{A}{B}{C}{D}=四格 promptZh；{FREE}=學生自由字；{STYLE}=風格層 promptZh；{STYLE_BOOST}=風格層 boostEn；{CHAR_NAME}=第3節主角名。組裝順序：global.prefix → lesson.template → style.boostEn → global.suffix。",
+    "assembly_order": ["global.prefix", "lesson.template", "style.boostEn", "global.suffix"]
+  },
+
+  "global": {
+    "enabled": true,
+    "prefix": "",
+    "suffix": "children's picture book illustration, wholesome, bright and friendly, no humans, no people, no text, no letters, no watermark, no signature",
+    "negativeTerms": "scary, horror, blood, weapon, violence, realistic human, photo of a person, nudity, logo, brand",
+    "humanBlockTerms": ["男孩", "女孩", "小朋友", "小學生", "學生", "男人", "女人", "人", "老師", "同學", "自己", "我", "明星", "boy", "girl", "man", "woman", "kid", "child", "person", "people", "human"],
+    "notes": "suffix 的 no humans 是最後防線；後台移除時彈出警告。"
+  },
+
+  "lessons": {
+    "senior-l3-character": {
+      "enabled": true,
+      "name": "高年級第 3 節：主角設定卡",
+      "kind": "generate",
+      "aspect": "3:4",
+      "slots": ["A", "B", "C", "D"],
+      "slotLabels": {"A": "我的主角（動物／奇幻角色）", "B": "佢喺邊度", "C": "細節或光線", "D": "風格"},
+      "template": "{A}，喺{B}，{C}。{FREE} 全身、置中、面向觀眾、簡單乾淨背景、角色設定圖。{D}。",
+      "optionSets": {"A": "subjects_senior", "B": "environments", "C": "details_lighting", "D": "styles"},
+      "defaultQuota": 10
+    },
+    "senior-l4-scene": {
+      "enabled": true,
+      "name": "高年級第 4 節：三幕場景",
+      "kind": "generate",
+      "aspect": "16:9",
+      "slots": ["A", "C", "D"],
+      "slotLabels": {"A": "場景主題", "C": "色調（三幕）", "D": "風格"},
+      "template": "{A}的廣角全景，{C}。{FREE} 畫面中央留空位、沒有任何角色、沒有動物、沒有人物、遠景、細節豐富的背景。{D}。",
+      "optionSets": {"A": "scene_themes", "C": "tones_three_acts", "D": "styles"},
+      "actSlots": [
+        {"id": "scene_1", "label": "第 1 幕：開始", "defaultC": "tone_warm_bright"},
+        {"id": "scene_2", "label": "第 2 幕：危機", "defaultC": "tone_cold_dark"},
+        {"id": "scene_3", "label": "第 3 幕：解決", "defaultC": "tone_golden"}
+      ],
+      "defaultQuota": 10,
+      "notes": "D 格預設鎖定為第 3 節所選風格（可解鎖），令主角與場景風格一致。"
+    },
+    "senior-l5-style": {
+      "enabled": true,
+      "name": "高年級第 5 節：大師風格轉換",
+      "kind": "edit",
+      "aspect": "keep",
+      "slots": ["STYLE"],
+      "slotLabels": {"STYLE": "揀一位大師"},
+      "template": "請以{STYLE}的風格重新繪畫這張圖。保留原本的構圖、主體和主要顏色分佈，不要加入新的物件、人物或文字。{STYLE_BOOST}",
+      "optionSets": {"STYLE": "masters"},
+      "defaultQuota": 8,
+      "notes": "輸入為第 3、4 節作品（最多 4 張），每張計 1 次配額；全班建議統一大師。"
+    },
+    "senior-l6-storybook": {
+      "enabled": true,
+      "name": "高年級第 6 節：故事書（無生圖）",
+      "kind": "compose",
+      "textTasks": {
+        "summarize_script": {
+          "enabled": true,
+          "model": "gemini-2.5-flash",
+          "template": "你是小學課堂助手。以下是一位小五學生寫的三幕式劇本。請把它縮寫成 6 頁繪本旁白：第 1 頁封面只需書名；第 2 頁介紹主角；第 3–5 頁分別對應開始、危機、解決，每頁最多 2 句、每句不超過 20 個中文字；第 6 頁留空。用繁體中文，語氣活潑，不加入原文沒有的情節，不出現暴力或恐怖字眼。只輸出 JSON：{\"title\":\"\",\"pages\":[\"\",\"\",\"\",\"\",\"\"]}。\n\n劇本：\n{SCRIPT}"
+        }
+      },
+      "notes": "縮寫結果必須由學生按「用呢個」確認才寫入；學生可逐頁修改。"
+    },
+
+    "junior-l4-style": {
+      "enabled": true,
+      "name": "低年級第 4 節：名畫風寵物",
+      "kind": "edit",
+      "aspect": "keep",
+      "slots": ["STYLE"],
+      "slotLabels": {"STYLE": "揀一個畫家"},
+      "template": "請以{STYLE}的風格重新繪畫這張小朋友畫的寵物。保留寵物的形狀、顏色和位置，背景可以加上該畫家風格的簡單花紋，不要加入文字或人物。{STYLE_BOOST}",
+      "optionSets": {"STYLE": "masters_junior"},
+      "defaultQuota": 6,
+      "notes": "輸入為學生上載的第 2 節 AutoDraw PNG（pet_original）。"
+    },
+    "junior-l5-palette": {
+      "enabled": true,
+      "name": "低年級第 5 節：顏色配方（無生圖）",
+      "kind": "vision",
+      "notes": "Cloud Vision Image Properties 取 5 主色；SVG 填色器；不使用生圖模型。"
+    },
+    "junior-l6-poster": {
+      "enabled": true,
+      "name": "低年級第 6 節：電子海報（無生圖）",
+      "kind": "compose",
+      "textTasks": {
+        "polish_three_sentences": {
+          "enabled": false,
+          "model": "gemini-2.5-flash",
+          "template": "以下是一位小一至小三學生用廣東話口述的三句話，請只修正錯別字和明顯語病，保留原意和口語風格，每句不超過 15 字，用繁體中文輸出三行。\n{THREE_SENTENCES}",
+          "notes": "預設關閉：低年級保留原話更有價值；導師可按需開啟。"
+        }
+      }
+    }
+  },
+
+  "styles": {
+    "_setName": "styles",
+    "items": [
+      {"id": "style_cartoon", "enabled": true, "group": "both", "icon": "🎨", "labelZh": "卡通插畫", "promptZh": "可愛卡通插畫風格", "boostEn": "cute cartoon illustration, clean bold outlines, flat vibrant colors"},
+      {"id": "style_watercolor", "enabled": true, "group": "both", "icon": "🖌️", "labelZh": "水彩繪本", "promptZh": "柔和水彩繪本風格", "boostEn": "soft watercolor children's book style, paper texture, gentle gradients"},
+      {"id": "style_pixel", "enabled": true, "group": "senior", "icon": "👾", "labelZh": "像素風", "promptZh": "復古電子遊戲像素風格", "boostEn": "16-bit pixel art, retro video game sprite style"},
+      {"id": "style_3d", "enabled": true, "group": "senior", "icon": "🧊", "labelZh": "3D 動畫", "promptZh": "3D 動畫電影風格", "boostEn": "3D animated movie style, soft studio lighting, smooth shading"},
+      {"id": "style_lineart", "enabled": true, "group": "senior", "icon": "✏️", "labelZh": "漫畫線稿", "promptZh": "黑白漫畫線稿風格", "boostEn": "clean manga line art, black and white, screentone shading"},
+      {"id": "style_clay", "enabled": true, "group": "both", "icon": "🧱", "labelZh": "黏土動畫", "promptZh": "黏土定格動畫風格", "boostEn": "claymation stop-motion style, soft clay texture, handmade look"},
+      {"id": "style_papercut", "enabled": true, "group": "both", "icon": "✂️", "labelZh": "剪紙", "promptZh": "層疊剪紙藝術風格", "boostEn": "layered paper cut-out art, depth and shadows, craft paper"},
+      {"id": "style_crayon", "enabled": true, "group": "junior", "icon": "🖍️", "labelZh": "蠟筆畫", "promptZh": "小朋友蠟筆畫風格", "boostEn": "crayon drawing style, childlike, textured strokes"}
+    ]
+  },
+
+  "masters": {
+    "_setName": "masters",
+    "items": [
+      {"id": "m_vangogh", "enabled": true, "group": "both", "icon": "🌌", "labelZh": "梵谷", "promptZh": "梵谷（Vincent van Gogh）後印象派", "boostEn": "in the style of Vincent van Gogh, swirling thick impasto brushstrokes, bold blues and yellows, expressive movement", "blurb": "彎彎曲曲嘅厚筆觸，藍黃對比"},
+      {"id": "m_monet", "enabled": true, "group": "both", "icon": "🪷", "labelZh": "莫內", "promptZh": "莫內（Claude Monet）印象派", "boostEn": "in the style of Claude Monet, impressionist, soft dappled light, loose brushwork, pastel palette", "blurb": "朦朦朧朧嘅光同色點"},
+      {"id": "m_picasso", "enabled": true, "group": "senior", "icon": "🔷", "labelZh": "畢卡索", "promptZh": "畢卡索（Pablo Picasso）立體派", "boostEn": "in the style of Pablo Picasso cubism, geometric fragmented shapes, multiple viewpoints, bold outlines", "blurb": "把物件拆成幾何塊面"},
+      {"id": "m_storybook", "enabled": true, "group": "both", "icon": "📖", "labelZh": "水彩繪本", "promptZh": "溫暖水彩兒童繪本", "boostEn": "warm watercolor children's storybook illustration, soft edges, cozy palette", "blurb": "溫柔、似故事書"}
+    ]
+  },
+  "masters_junior": {
+    "_setName": "masters_junior",
+    "items": [
+      {"id": "m_vangogh", "enabled": true, "group": "junior", "icon": "🌌", "labelZh": "梵谷", "promptZh": "梵谷後印象派", "boostEn": "in the style of Vincent van Gogh, swirling thick brushstrokes, bold blues and yellows", "blurb": "彎彎曲曲嘅筆觸"},
+      {"id": "m_monet", "enabled": true, "group": "junior", "icon": "🪷", "labelZh": "莫內", "promptZh": "莫內印象派", "boostEn": "in the style of Claude Monet, soft dappled light, pastel palette", "blurb": "朦朦朧朧好似發夢"},
+      {"id": "m_picasso", "enabled": true, "group": "junior", "icon": "🔷", "labelZh": "畢卡索", "promptZh": "畢卡索立體派", "boostEn": "in the style of Pablo Picasso cubism, playful geometric shapes, bold outlines", "blurb": "變成一舊舊幾何形"}
+    ]
+  },
+
+  "subjects_senior": {
+    "_setName": "subjects_senior",
+    "items": [
+      {"id": "s_dragon", "enabled": true, "group": "senior", "icon": "🐉", "labelZh": "小龍", "promptZh": "一條友善的卡通小龍，圓圓的大眼睛，短短的翅膀"},
+      {"id": "s_catexplorer", "enabled": true, "group": "senior", "icon": "🐱", "labelZh": "貓咪探險家", "promptZh": "一隻戴著探險帽、背著小背包的貓咪探險家"},
+      {"id": "s_foxmage", "enabled": true, "group": "senior", "icon": "🦊", "labelZh": "狐狸魔法師", "promptZh": "一隻披著星星斗篷、拿著魔法杖的狐狸魔法師"},
+      {"id": "s_robotdog", "enabled": true, "group": "senior", "icon": "🤖", "labelZh": "機械狗", "promptZh": "一隻圓滾滾、會發光的友善機械狗"},
+      {"id": "s_spacehamster", "enabled": true, "group": "senior", "icon": "🐹", "labelZh": "太空倉鼠", "promptZh": "一隻穿著迷你太空衣的勇敢倉鼠"},
+      {"id": "s_unicorn", "enabled": true, "group": "senior", "icon": "🦄", "labelZh": "獨角獸", "promptZh": "一隻彩虹鬃毛的小獨角獸"},
+      {"id": "s_turtlecaptain", "enabled": true, "group": "senior", "icon": "🐢", "labelZh": "海龜船長", "promptZh": "一隻戴著船長帽、拿著望遠鏡的老海龜船長"},
+      {"id": "s_phoenix", "enabled": true, "group": "senior", "icon": "🔥", "labelZh": "鳳凰", "promptZh": "一隻全身閃著橙紅色火光的小鳳凰"},
+      {"id": "s_snowleopard", "enabled": true, "group": "senior", "icon": "🐆", "labelZh": "雪豹戰士", "promptZh": "一隻披著輕便冰藍色盔甲的雪豹戰士"},
+      {"id": "s_jellyfish", "enabled": true, "group": "senior", "icon": "🪼", "labelZh": "發光水母", "promptZh": "一隻會發出柔和彩光、有大眼睛的卡通水母"},
+      {"id": "s_owl", "enabled": true, "group": "senior", "icon": "🦉", "labelZh": "博士貓頭鷹", "promptZh": "一隻戴著圓眼鏡、抱著書本的博士貓頭鷹"},
+      {"id": "s_pandaninja", "enabled": true, "group": "senior", "icon": "🐼", "labelZh": "熊貓忍者", "promptZh": "一隻綁著紅色頭帶的小熊貓忍者"}
+    ]
+  },
+
+  "environments": {
+    "_setName": "environments",
+    "items": [
+      {"id": "e_undersea", "enabled": true, "group": "both", "icon": "🌊", "labelZh": "海底城市", "promptZh": "一座發光的海底水晶城市，有珊瑚和魚群"},
+      {"id": "e_skycity", "enabled": true, "group": "both", "icon": "☁️", "labelZh": "天空之城", "promptZh": "漂浮在雲端上的天空之城，有瀑布和吊橋"},
+      {"id": "e_techforest", "enabled": true, "group": "both", "icon": "🌳", "labelZh": "科技森林", "promptZh": "樹木會發出霓虹光的未來科技森林"},
+      {"id": "e_desert", "enabled": true, "group": "senior", "icon": "🏜️", "labelZh": "沙漠古城", "promptZh": "黃沙中的神秘古城遺跡，有巨大石像"},
+      {"id": "e_icecave", "enabled": true, "group": "both", "icon": "🧊", "labelZh": "冰雪山洞", "promptZh": "閃閃發光的藍色冰雪水晶山洞"},
+      {"id": "e_volcano", "enabled": true, "group": "senior", "icon": "🌋", "labelZh": "火山島", "promptZh": "有流動岩漿和黑色岩石的火山島"},
+      {"id": "e_spacestation", "enabled": true, "group": "both", "icon": "🛰️", "labelZh": "太空站", "promptZh": "可以看到地球和星星的太空站窗邊"},
+      {"id": "e_library", "enabled": true, "group": "both", "icon": "📚", "labelZh": "魔法圖書館", "promptZh": "書本會飛來飛去的巨大魔法圖書館"},
+      {"id": "e_candy", "enabled": true, "group": "both", "icon": "🍭", "labelZh": "糖果王國", "promptZh": "由糖果、棉花糖和朱古力河組成的王國"},
+      {"id": "e_cloudmarket", "enabled": true, "group": "senior", "icon": "🎪", "labelZh": "雲端市集", "promptZh": "建在雲朵上、掛滿燈籠的熱鬧市集"}
+    ]
+  },
+
+  "scene_themes": {
+    "_setName": "scene_themes",
+    "items": [
+      {"id": "sc_techforest", "enabled": true, "group": "senior", "icon": "🌳", "labelZh": "科技森林", "promptZh": "樹木會發出霓虹光的未來科技森林"},
+      {"id": "sc_skycity", "enabled": true, "group": "senior", "icon": "☁️", "labelZh": "天空之城", "promptZh": "漂浮在雲端上的天空之城，有瀑布和吊橋"},
+      {"id": "sc_underseapalace", "enabled": true, "group": "senior", "icon": "🏰", "labelZh": "海底宮殿", "promptZh": "珊瑚和珍珠砌成的海底宮殿大廳"},
+      {"id": "sc_volcanocave", "enabled": true, "group": "senior", "icon": "🌋", "labelZh": "火山洞穴", "promptZh": "岩漿在腳下流動的火山洞穴"},
+      {"id": "sc_cloudmarket", "enabled": true, "group": "senior", "icon": "🎪", "labelZh": "雲端市集", "promptZh": "建在雲朵上、掛滿燈籠的熱鬧市集"},
+      {"id": "sc_desertruins", "enabled": true, "group": "senior", "icon": "🏜️", "labelZh": "沙漠遺跡", "promptZh": "黃沙中露出一半的巨大古代遺跡"},
+      {"id": "sc_icekingdom", "enabled": true, "group": "senior", "icon": "❄️", "labelZh": "冰雪王國", "promptZh": "冰柱和雪城堡組成的冰雪王國"},
+      {"id": "sc_spaceport", "enabled": true, "group": "senior", "icon": "🚀", "labelZh": "太空港", "promptZh": "停滿飛船、燈光閃爍的未來太空港"},
+      {"id": "sc_mushroomvillage", "enabled": true, "group": "senior", "icon": "🍄", "labelZh": "蘑菇村", "promptZh": "巨大蘑菇屋組成的森林小村莊"},
+      {"id": "sc_crystalmine", "enabled": true, "group": "senior", "icon": "💎", "labelZh": "水晶礦洞", "promptZh": "長滿七彩水晶的地底礦洞"}
+    ]
+  },
+
+  "details_lighting": {
+    "_setName": "details_lighting",
+    "items": [
+      {"id": "d_goldarmor", "enabled": true, "group": "senior", "icon": "🛡️", "labelZh": "戴住金色盔甲", "promptZh": "穿著閃亮的金色輕盔甲"},
+      {"id": "d_backpack", "enabled": true, "group": "senior", "icon": "🎒", "labelZh": "背住小背包", "promptZh": "背著一個塞滿工具的小背包"},
+      {"id": "d_wand", "enabled": true, "group": "senior", "icon": "🪄", "labelZh": "拎住魔法杖", "promptZh": "手持一支發光的魔法杖"},
+      {"id": "d_goggles", "enabled": true, "group": "senior", "icon": "🥽", "labelZh": "戴住飛行鏡", "promptZh": "頭上戴著一副飛行員護目鏡"},
+      {"id": "d_cape", "enabled": true, "group": "senior", "icon": "🦸", "labelZh": "披住斗篷", "promptZh": "披著一件隨風飄動的斗篷"},
+      {"id": "d_softblue", "enabled": true, "group": "senior", "icon": "🔵", "labelZh": "藍色柔光", "promptZh": "柔和的藍色光線"},
+      {"id": "d_sunset", "enabled": true, "group": "senior", "icon": "🌇", "labelZh": "黃昏暖光", "promptZh": "溫暖的黃昏金色光線"},
+      {"id": "d_neon", "enabled": true, "group": "senior", "icon": "💜", "labelZh": "霓虹燈光", "promptZh": "紫色和粉紅色的霓虹燈光"},
+      {"id": "d_moonlight", "enabled": true, "group": "senior", "icon": "🌙", "labelZh": "月光下", "promptZh": "銀白色的月光照射"},
+      {"id": "d_rainbow", "enabled": true, "group": "senior", "icon": "🌈", "labelZh": "彩虹光", "promptZh": "七彩的彩虹光芒"}
+    ]
+  },
+
+  "tones_three_acts": {
+    "_setName": "tones_three_acts",
+    "items": [
+      {"id": "tone_warm_bright", "enabled": true, "group": "senior", "icon": "🌞", "labelZh": "開始：明亮暖色", "promptZh": "明亮溫暖的色調，陽光充足，令人安心的黃色和橙色"},
+      {"id": "tone_cold_dark", "enabled": true, "group": "senior", "icon": "🌑", "labelZh": "危機：陰暗冷色", "promptZh": "陰暗緊張的冷色調，深藍和紫色，有戲劇性的陰影（但不恐怖）"},
+      {"id": "tone_golden", "enabled": true, "group": "senior", "icon": "✨", "labelZh": "解決：金黃彩虹", "promptZh": "勝利和希望的金黃色調，帶一點彩虹光芒，溫暖明亮"},
+      {"id": "tone_misty", "enabled": true, "group": "senior", "icon": "🌫️", "labelZh": "神秘：薄霧", "promptZh": "帶有薄霧的神秘淡綠和淡紫色調"},
+      {"id": "tone_night", "enabled": true, "group": "senior", "icon": "🌌", "labelZh": "夜晚：星空", "promptZh": "深藍夜空、滿天星星的寧靜色調"}
+    ]
+  },
+
+  "voice_hints": {
+    "notes": "語音辨識結果用 gemini-2.5-flash 對應到選項：",
+    "matchTemplate": "學生用廣東話說了：「{TRANSCRIPT}」。以下是可選項目（id：中文名）：\n{OPTIONS}\n請回傳最接近的 3 個 id，JSON 陣列，由最接近排到最不接近。如果學生說的內容是人類（男孩、女孩、人、同學等），回傳 [\"__HUMAN__\"]。如果完全對不上任何選項，回傳 [\"__FREE__\"]。"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "ai-class-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "worker": "node dist/worker.js",
+    "worker:dev": "tsx watch worker/index.ts",
+    "worker:build": "esbuild worker/index.ts --bundle --platform=node --target=node20 --outfile=dist/worker.js --external:sharp --external:@prisma/client --external:.prisma",
+    "seed": "tsx prisma/seed.ts",
+    "seed:prod": "tsx prisma/seed.ts --prod",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "generate-accounts": "tsx scripts/generate-accounts.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.16.0",
+    "@prisma/client": "^5.22.0",
+    "archiver": "^7.0.1",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.34.0",
+    "docx": "^9.0.2",
+    "dotenv": "^18.0.10",
+    "ioredis": "^5.4.1",
+    "iron-session": "^8.0.4",
+    "next": "^14.2.33",
+    "node-cron": "^3.0.3",
+    "opencc-js": "^1.0.5",
+    "puppeteer-core": "^23.10.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "esbuild": "^0.24.0",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

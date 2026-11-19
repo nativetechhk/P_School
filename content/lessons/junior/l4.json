@@ -1,0 +1,11 @@
+{
+  "title": "第 4 節：寵物變名畫！",
+  "worksheetRef": "工作紙 第 4 節",
+  "steps": [
+    { "text": "上載你第 2 節畫嘅寵物相（PNG）", "worksheetQ": "Q1" },
+    { "text": "揀一個大畫家：梵谷、莫內、定畢卡索", "worksheetQ": "Q2" },
+    { "text": "撳「變！」，等 AI 幫你把寵物變成名畫風", "worksheetQ": "Q3" },
+    { "text": "拉動滑桿，睇下變咗之後幾唔同！", "worksheetQ": "Q4" }
+  ],
+  "tips": ["揀你最鍾意嗰隻寵物相", "聽下 AI 讀出你揀咗咩"]
+}
