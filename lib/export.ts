@@ -19,11 +19,32 @@ export function findChrome(): string | null {
   return null;
 }
 
-export async function htmlToPdf(html: string, opts?: { landscape?: boolean; format?: 'A4' | 'A6' }): Promise<Buffer> {
+// 記憶體受限伺服器上穩定的 headless Chrome 啟動參數（避免 Target.createTarget timeout）
+const LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--no-zygote',
+  '--disable-software-rasterizer',
+  '--disable-extensions',
+  '--disable-background-networking',
+];
+const PROTOCOL_TIMEOUT = 120000;
+
+async function launchBrowser() {
   const puppeteer = await import('puppeteer-core');
   const chromePath = findChrome();
   if (!chromePath) throw new Error('CHROME_NOT_FOUND：請安裝 Chrome 或設定 CHROME_PATH');
-  const browser = await puppeteer.launch({ executablePath: chromePath, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  return puppeteer.launch({
+    executablePath: chromePath,
+    headless: true,
+    protocolTimeout: PROTOCOL_TIMEOUT,
+    args: LAUNCH_ARGS,
+  });
+}
+
+export async function htmlToPdf(html: string, opts?: { landscape?: boolean; format?: 'A4' | 'A6' }): Promise<Buffer> {
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
@@ -38,10 +59,7 @@ export async function htmlToPdf(html: string, opts?: { landscape?: boolean; form
 }
 
 export async function htmlToPng(html: string, width: number, height: number): Promise<Buffer> {
-  const puppeteer = await import('puppeteer-core');
-  const chromePath = findChrome();
-  if (!chromePath) throw new Error('CHROME_NOT_FOUND：請安裝 Chrome 或設定 CHROME_PATH');
-  const browser = await puppeteer.launch({ executablePath: chromePath, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: 2 });
