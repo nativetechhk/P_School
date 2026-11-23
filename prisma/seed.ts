@@ -62,9 +62,9 @@ async function main() {
     demoJunior = await prisma.class.create({ data: { name: '示範低年級班', group: 'junior', note: 'seed' } });
     await prisma.lessonAccess.createMany({
       data: LESSONS.filter((l) => l.group === 'junior').map((l) => ({
-        classId: demoJunior!.id, lessonId: l.id, enabled: l.id === 'junior-l4-style',
+        classId: demoJunior!.id, lessonId: l.id, enabled: l.id === 'junior-l4-generate-style',
         quotaPerStudent: l.defaultQuota || 6, cooldownSeconds: 60,
-        openedAt: l.id === 'junior-l4-style' ? new Date() : null,
+        openedAt: l.id === 'junior-l4-generate-style' ? new Date() : null,
       })),
     });
     const created = await bulkGenerate(demoJunior.id, 'S1-', 10);

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const file = form.get('file');
   const role = String(form.get('role') ?? 'pet_original');
-  const lessonId = String(form.get('lessonId') ?? 'junior-l4-style');
+  const lessonId = String(form.get('lessonId') ?? 'junior-l4-generate-style');
   if (!(file instanceof File)) return NextResponse.json({ ok: false, error: '請揀一個檔案' }, { status: 400 });
   if (file.size > MAX) return NextResponse.json({ ok: false, error: '圖片太大（上限 5MB）' }, { status: 413 });
 

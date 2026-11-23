@@ -12,10 +12,10 @@ const map: Record<string, [string, string]> = {
   'senior-l3-character': ['senior', 'l3'],
   'senior-l4-scene': ['senior', 'l4'],
   'senior-l5-style': ['senior', 'l5'],
-  'senior-l6-storybook': ['senior', 'l6'],
-  'junior-l4-style': ['junior', 'l4'],
-  'junior-l5-palette': ['junior', 'l5'],
-  'junior-l6-poster': ['junior', 'l6'],
+  'senior-l6-carousel': ['senior', 'l6'],
+  'junior-l4-generate-style': ['junior', 'l4'],
+  'junior-l5-fivecolor': ['junior', 'l5'],
+  'junior-l6-carousel': ['junior', 'l6'],
 };
 
 export function getLessonContent(lessonId: string): LessonContent | null {

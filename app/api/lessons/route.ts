@@ -1,4 +1,4 @@
-// GET /api/lessons → 可見課堂 + 配額 + 冷卻 +（每課堂）選項卡資料
+// GET /api/lessons → 可見課堂（含 v2.4 兩步／五色／輪播配置）+ 配額 + 所有選項卡（含畫家代表作、色票）
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireStudent, requireStaff, unauthorized } from '@/lib/session';
@@ -8,6 +8,11 @@ import { getLessonTemplate, getOptionSet } from '@/lib/prompt-engine';
 
 export const dynamic = 'force-dynamic';
 
+const ALL_SETS = [
+  'styles', 'masters', 'subjects_senior', 'environments', 'scene_themes',
+  'details_lighting', 'tones_three_acts', 'pets_junior', 'pet_colors_junior', 'colors14',
+];
+
 export async function GET() {
   const student = await requireStudent();
   const staff = !student ? await requireStaff() : null;
@@ -15,6 +20,20 @@ export async function GET() {
 
   const group = student?.group ?? 'senior';
   const defs = LESSONS.filter((l) => (staff ? true : l.group === group));
+
+  // 一次過解析所有選項卡（畫家含 famousWorks/en/deathYear/blurb；色票含 hex）
+  const optionSetsResolved: Record<string, unknown[]> = {};
+  for (const setName of ALL_SETS) {
+    const rows = await getOptionSet(setName, staff ? undefined : student?.group);
+    optionSetsResolved[setName] = rows.map((o) => {
+      const d = (o.data ?? {}) as { blurb?: string; en?: string; deathYear?: number | null; famousWorks?: unknown; hex?: string };
+      return {
+        id: o.itemId, icon: o.icon, labelZh: o.labelZh,
+        blurb: d.blurb ?? null, en: d.en ?? null, deathYear: d.deathYear ?? null,
+        famousWorks: d.famousWorks ?? null, hex: d.hex ?? null,
+      };
+    });
+  }
 
   const result = [];
   for (const def of defs) {
@@ -31,26 +50,15 @@ export async function GET() {
 
     const template = await getLessonTemplate(def.id);
     const tdata = (template?.data ?? {}) as Record<string, unknown>;
-    const optionSets: Record<string, unknown[]> = {};
-    const sets = (tdata.optionSets ?? {}) as Record<string, string>;
-    for (const [slot, setName] of Object.entries(sets)) {
-      optionSets[slot] = (await getOptionSet(setName, staff ? undefined : student?.group)).map((o) => ({
-        id: o.itemId, icon: o.icon, labelZh: o.labelZh, blurb: (o.data as { blurb?: string } | null)?.blurb,
-      }));
-    }
 
     result.push({
-      ...def,
+      id: def.id, group: def.group, lessonNo: def.lessonNo, title: def.title,
+      kind: def.kind, aspect: def.aspect, consumes: def.consumes, produces: def.produces,
       enabled,
       templateEnabled: !!template?.enabled,
-      slotLabels: tdata.slotLabels ?? {},
-      slots: tdata.slots ?? [],
-      actSlots: tdata.actSlots ?? null,
-      optionSets,
-      optionSetsRaw: sets,
-      textTasks: tdata.textTasks ?? null,
+      data: tdata, // 完整配置：slots/slotLabels/optionSets/actSlots/step1/step2/generate/edit/fiveColorMode/minWorks/orderHint/textTasks
       quota,
     });
   }
-  return NextResponse.json({ ok: true, lessons: result, group, isStaff: !!staff });
+  return NextResponse.json({ ok: true, lessons: result, optionSets: optionSetsResolved, group, isStaff: !!staff });
 }

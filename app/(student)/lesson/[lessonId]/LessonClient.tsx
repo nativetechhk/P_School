@@ -5,16 +5,15 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client';
 import TopNav, { LessonTab } from '@/components/student/TopNav';
 import StepCards from '@/components/student/StepCards';
-import { GenerateWorkspace, EditWorkspace, PaletteWorkspace, LessonMeta } from '@/components/student/workspaces';
-import { PosterWorkspace, StorybookWorkspace } from '@/components/student/compose-workspaces';
+import { GenerateWorkspace, EditWorkspace, TwoStepWorkspace, FiveColorWorkspace, LessonMeta, OptionSets } from '@/components/student/workspaces';
+import { CarouselWorkspace } from '@/components/student/compose-workspaces';
 import type { LessonContent } from '@/lib/lesson-content';
 import { Artifact } from '@/components/student/PriorWorksPicker';
 
-interface LessonApi extends LessonMeta { optionSetsRaw: Record<string, string>; enabled: boolean }
-
 export default function LessonClient({ lessonId, content }: { lessonId: string; content: LessonContent | null }) {
   const router = useRouter();
-  const [lessons, setLessons] = useState<LessonApi[]>([]);
+  const [lessons, setLessons] = useState<LessonMeta[]>([]);
+  const [optionSets, setOptionSets] = useState<OptionSets>({});
   const [loading, setLoading] = useState(true);
   const [works, setWorks] = useState<Artifact[]>([]);
 
@@ -22,8 +21,8 @@ export default function LessonClient({ lessonId, content }: { lessonId: string; 
   const tabs: LessonTab[] = lessons.map((l) => ({ id: l.id, title: l.title, lessonNo: l.lessonNo }));
 
   useEffect(() => {
-    api<{ lessons: LessonApi[] }>('/api/lessons')
-      .then((r) => setLessons(r.lessons))
+    api<{ lessons: LessonMeta[]; optionSets: OptionSets }>('/api/lessons')
+      .then((r) => { setLessons(r.lessons); setOptionSets(r.optionSets ?? {}); })
       .catch((e) => { if ((e as { status?: number }).status === 401) router.push('/login'); })
       .finally(() => setLoading(false));
     api<{ artifacts: Artifact[] }>(`/api/artifacts?lessonId=${lessonId}`).then((r) => setWorks(r.artifacts)).catch(() => {});
@@ -31,13 +30,12 @@ export default function LessonClient({ lessonId, content }: { lessonId: string; 
 
   function renderWorkspace() {
     if (!meta) return null;
-    const raw = meta.optionSetsRaw ?? {};
     switch (meta.kind) {
-      case 'generate': return <GenerateWorkspace meta={meta} optionSetsRaw={raw} />;
-      case 'edit': return <EditWorkspace meta={meta} optionSetsRaw={raw} />;
-      case 'vision': return <PaletteWorkspace meta={meta} />;
-      case 'compose':
-        return meta.group === 'senior' ? <StorybookWorkspace meta={meta} /> : <PosterWorkspace meta={meta} />;
+      case 'generate': return <GenerateWorkspace meta={meta} optionSets={optionSets} />;
+      case 'edit': return <EditWorkspace meta={meta} optionSets={optionSets} />;
+      case 'two_step': return <TwoStepWorkspace meta={meta} optionSets={optionSets} />;
+      case 'five_color': return <FiveColorWorkspace meta={meta} optionSets={optionSets} />;
+      case 'carousel': return <CarouselWorkspace meta={meta} />;
       default: return <div>未支援嘅課堂類型</div>;
     }
   }
