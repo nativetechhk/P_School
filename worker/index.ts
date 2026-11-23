@@ -7,7 +7,7 @@ import { GENERATE_QUEUE, GenerateJobData } from '../lib/queue';
 import { generateImage } from '../lib/gemini';
 import { storage } from '../lib/storage';
 import { saveImageArtifact, bumpUsage } from '../lib/artifacts';
-import { safeSearchCheck } from '../lib/vision';
+import { safeSearchCheck, analyzePalette } from '../lib/vision';
 import { publishEvent } from '../lib/events';
 import { refundQuota } from '../lib/quota';
 import { getSettings } from '../lib/settings';
@@ -87,11 +87,17 @@ async function processJob(job: Job<GenerateJobData>) {
     const png = r.value;
     // 輸出複檢（§7）
     const verdict = await safeSearchCheck(png).catch(() => ({ safe: true }));
+    // 五色模式：數主色，標示「AI 偷加咗 N 色」（§5.1）
+    let params = data.params ?? {};
+    if (data.countColors && data.palette?.length) {
+      const res = await analyzePalette(png, data.palette.map((c) => c.hex)).catch(() => ({ distinct: 0, overflow: 0 }));
+      params = { ...params, colorCheck: res };
+    }
     const artifact = await saveImageArtifact({
       studentId: data.studentId, classId: data.classId, lessonId: data.lessonId, role: data.role,
       png, promptZh: data.promptZh, promptSent: data.promptSent, templateVersion: data.templateVersion,
-      sourceArtifactIds: sourceIds, model: data.kind === 'edit' ? settings.imageModel : settings.imageModel,
-      params: data.params,
+      sourceArtifactIds: sourceIds, model: settings.imageModel,
+      params,
       status: !verdict.safe || data.flagged ? 'review' : 'ok',
       notify: !data.isStaffDemo,
     });

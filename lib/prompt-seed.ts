@@ -9,8 +9,9 @@ interface SeedFile {
 }
 
 const OPTION_SETS = [
-  'styles', 'masters', 'masters_junior', 'subjects_senior',
+  'styles', 'masters', 'subjects_senior',
   'environments', 'scene_themes', 'details_lighting', 'tones_three_acts',
+  'pets_junior', 'pet_colors_junior', 'colors14',
 ];
 
 export async function importPromptSeed(seed: SeedFile, opts: { overwrite?: boolean } = {}): Promise<number> {
@@ -44,19 +45,23 @@ export async function importPromptSeed(seed: SeedFile, opts: { overwrite?: boole
     let order = 0;
     for (const item of set.items) {
       const itemId = String(item.id);
+      // 保留選項卡的額外中繼資料（畫家代表作、逝世年、英文名、色票 hex 等）
+      const extra = {
+        blurb: item.blurb ?? null,
+        en: item.en ?? null,
+        deathYear: item.deathYear ?? null,
+        famousWorks: item.famousWorks ?? null,
+        hex: item.hex ?? null,
+      };
+      const fields = {
+        labelZh: item.labelZh as string, promptZh: (item.promptZh as string) ?? null, boostEn: (item.boostEn as string) ?? null,
+        icon: (item.icon as string) ?? null, group: (item.group as string) ?? 'both', enabled: (item.enabled as boolean) ?? true,
+        sortOrder: order, data: extra as object,
+      };
       await prisma.promptTemplate.upsert({
         where: { level_lessonId_setName_itemId: { level: 'option', lessonId: '', setName, itemId } },
-        update: opts.overwrite ? {
-          labelZh: item.labelZh as string, promptZh: item.promptZh as string, boostEn: (item.boostEn as string) ?? null,
-          icon: item.icon as string, group: (item.group as string) ?? 'both', enabled: (item.enabled as boolean) ?? true,
-          sortOrder: order, data: { blurb: item.blurb } as object,
-        } : {},
-        create: {
-          level: 'option', lessonId: '', setName, itemId,
-          labelZh: item.labelZh as string, promptZh: item.promptZh as string, boostEn: (item.boostEn as string) ?? null,
-          icon: item.icon as string, group: (item.group as string) ?? 'both', enabled: (item.enabled as boolean) ?? true,
-          sortOrder: order, data: { blurb: item.blurb } as object,
-        },
+        update: opts.overwrite ? fields : {},
+        create: { level: 'option', lessonId: '', setName, itemId, ...fields },
       });
       order++;
       count++;
@@ -68,6 +73,21 @@ export async function importPromptSeed(seed: SeedFile, opts: { overwrite?: boole
     await prisma.setting.upsert({
       where: { key: 'voice_hints' }, update: { value: seed.voice_hints as object }, create: { key: 'voice_hints', value: seed.voice_hints as object },
     });
+  }
+
+  // 清走種子已移除的舊模板（例如 masters_junior、senior-l6-storybook），令後台乾淨
+  if (opts.overwrite) {
+    const validLessonIds = Object.keys(seed.lessons ?? {});
+    await prisma.promptTemplate.deleteMany({ where: { level: 'lesson', lessonId: { notIn: validLessonIds } } });
+
+    const validOptionKeys = new Set<string>();
+    for (const setName of OPTION_SETS) {
+      const set = seed[setName] as { items?: Array<Record<string, unknown>> } | undefined;
+      for (const item of set?.items ?? []) validOptionKeys.add(`${setName}:${item.id}`);
+    }
+    const options = await prisma.promptTemplate.findMany({ where: { level: 'option' }, select: { id: true, setName: true, itemId: true } });
+    const staleIds = options.filter((o) => !validOptionKeys.has(`${o.setName}:${o.itemId}`)).map((o) => o.id);
+    if (staleIds.length) await prisma.promptTemplate.deleteMany({ where: { id: { in: staleIds } } });
   }
   return count;
 }

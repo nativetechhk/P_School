@@ -1,18 +1,25 @@
-// POST /api/edit-image {lessonId, sourceArtifactId, styleId} → {jobId}（圖生圖，senior-l5 / junior-l4）
+// POST /api/edit-image {lessonId, sourceArtifactId, styleId?|palette?, step?, role?} → {jobId}
+// 圖生圖：senior-l5（畫家風格）、junior-l4 step2（畫家風格）、junior-l5 五色重畫（palette）
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireStudent, requireStaff, unauthorized } from '@/lib/session';
 import { getQuotaState, consumeQuota, checkGlobalDailyCap } from '@/lib/quota';
-import { getLessonTemplate, getGlobalTemplate } from '@/lib/prompt-engine';
+import { assemblePrompt } from '@/lib/prompt-engine';
 import { enqueueGeneration } from '@/lib/queue';
 import { lessonById } from '@/lib/config';
 
+const Palette = z.array(z.object({ zh: z.string(), hex: z.string() })).max(5).optional();
 const Body = z.object({
   lessonId: z.string(),
   sourceArtifactId: z.string(),
-  styleId: z.string(),
+  styleId: z.string().optional(),
+  palette: Palette,
+  step: z.enum(['step2', 'edit']).optional(),
+  role: z.string().optional(),
 });
+
+const EDIT_KINDS = ['edit', 'two_step', 'five_color'];
 
 export async function POST(req: NextRequest) {
   const student = await requireStudent();
@@ -21,9 +28,10 @@ export async function POST(req: NextRequest) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: '參數錯誤' }, { status: 400 });
-  const { lessonId, sourceArtifactId, styleId } = parsed.data;
+  const { lessonId, sourceArtifactId, styleId, palette, step, role } = parsed.data;
   const def = lessonById(lessonId);
-  if (!def || def.kind !== 'edit') return NextResponse.json({ ok: false, error: '課堂不支援風格轉換' }, { status: 400 });
+  if (!def || !EDIT_KINDS.includes(def.kind)) return NextResponse.json({ ok: false, error: '課堂不支援二次創作' }, { status: 400 });
+  if (!styleId && !palette?.length) return NextResponse.json({ ok: false, error: '請揀畫家或 5 種顏色' }, { status: 400 });
 
   const source = await prisma.artifact.findUnique({ where: { id: sourceArtifactId } });
   if (!source) return NextResponse.json({ ok: false, error: '搵唔到來源圖' }, { status: 404 });
@@ -40,19 +48,23 @@ export async function POST(req: NextRequest) {
     if (!(await checkGlobalDailyCap())) return NextResponse.json({ ok: false, error: '今日全校生成已達上限' }, { status: 429 });
   }
 
-  const template = await getLessonTemplate(lessonId);
-  if (!template?.enabled) return NextResponse.json({ ok: false, error: '導師未開放生成' }, { status: 403 });
-  const setName = ((template.data as { optionSets?: Record<string, string> })?.optionSets?.STYLE) ?? 'masters';
-  const style = await prisma.promptTemplate.findFirst({ where: { level: 'option', setName, itemId: styleId, enabled: true } });
-  if (!style) return NextResponse.json({ ok: false, error: '風格選項不存在' }, { status: 404 });
+  let assembled;
+  try {
+    assembled = await assemblePrompt({
+      lessonId,
+      slots: styleId ? { STYLE: styleId } : {},
+      step: step ?? (def.kind === 'two_step' ? 'step2' : def.kind === 'five_color' ? 'edit' : undefined),
+      palette,
+    });
+  } catch (e) {
+    const msg = String((e as Error).message);
+    if (msg.includes('DISABLED')) return NextResponse.json({ ok: false, error: '導師未開放生成' }, { status: 403 });
+    if (msg.includes('OPTION_NOT_FOUND')) return NextResponse.json({ ok: false, error: '選項不存在' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: '組裝 prompt 失敗' }, { status: 400 });
+  }
 
-  const g = await getGlobalTemplate();
-  const promptSent = [
-    g.prefix,
-    (template.promptZh ?? '').replaceAll('{STYLE}', style.promptZh ?? style.labelZh ?? '').replaceAll('{STYLE_BOOST}', style.boostEn ?? ''),
-    g.suffix,
-  ].filter(Boolean).join(' ');
-  const promptZh = `以${style.labelZh}風格重畫`;
+  const outRole = role ?? (def.kind === 'two_step' ? 'styled_pet' : def.produces[0]);
+  const promptZh = palette?.length ? `五色重畫（${palette.map((c) => c.zh).join('、')}）` : assembled.promptZh || '風格重畫';
 
   if (!isDemo) await consumeQuota(student!.id!, lessonId);
 
@@ -64,9 +76,12 @@ export async function POST(req: NextRequest) {
 
   await enqueueGeneration({
     dbJobId: job.id, kind: 'edit', studentId: subjectId, isStaffDemo: isDemo,
-    classId, lessonId, promptSent, promptZh, aspect: 'keep',
-    templateVersion: template.version, role: def.produces[0], imagesCount: 1,
-    sourceArtifactId, params: { styleId, styleLabel: style.labelZh, sourceRole: source.role },
+    classId, lessonId, promptSent: assembled.promptSent, promptZh, aspect: 'keep',
+    templateVersion: assembled.templateVersion, role: outRole, imagesCount: 1,
+    sourceArtifactId,
+    params: { styleId, sourceRole: source.role, ...(palette?.length ? { palette } : {}) },
+    palette: palette?.length ? palette : undefined,
+    countColors: !!palette?.length,
   });
 
   return NextResponse.json({ ok: true, jobId: job.id });

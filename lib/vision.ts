@@ -67,3 +67,32 @@ export async function dominantColors(png: Buffer): Promise<Color[]> {
       return { r: rr, g: gg, b: bb, hex: `#${[rr, gg, bb].map((v) => v.toString(16).padStart(2, '0')).join('')}` };
     });
 }
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** 五色模式檢查（§5.1）：數圖內有多少顯著顏色唔屬於指定 5 色調色盤，供「AI 偷加咗 N 色」教學提示。 */
+export async function analyzePalette(png: Buffer, paletteHex: string[]): Promise<{ distinct: number; overflow: number }> {
+  const palette = paletteHex.map(hexToRgb);
+  const NEAR = 55; // RGB 歐氏距離門檻：細過視為同一色
+  const COVER = 0.06; // 覆蓋率門檻
+  const { data, info } = await sharp(png).resize(32, 32, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const total = info.width * info.height;
+  const buckets = new Map<string, { r: number; g: number; b: number; n: number }>();
+  for (let i = 0; i < data.length; i += 3) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const key = `${r >> 4}-${g >> 4}-${b >> 4}`;
+    const bk = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0 };
+    buckets.set(key, { r: bk.r + r, g: bk.g + g, b: bk.b + b, n: bk.n + 1 });
+  }
+  const significant = Array.from(buckets.values()).filter((bk) => bk.n / total >= COVER);
+  let overflow = 0;
+  for (const bk of significant) {
+    const r = bk.r / bk.n, g = bk.g / bk.n, b = bk.b / bk.n;
+    const near = palette.some(([pr, pg, pb]) => Math.hypot(r - pr, g - pg, b - pb) <= NEAR);
+    if (!near) overflow++;
+  }
+  return { distinct: significant.length, overflow };
+}

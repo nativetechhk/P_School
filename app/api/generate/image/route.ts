@@ -10,6 +10,7 @@ import { enqueueGeneration } from '@/lib/queue';
 import { getSettings } from '@/lib/settings';
 import { lessonById } from '@/lib/config';
 
+const Palette = z.array(z.object({ zh: z.string(), hex: z.string() })).max(5).optional();
 const Body = z.object({
   lessonId: z.string(),
   slots: z.record(z.string()).default({}),
@@ -17,6 +18,8 @@ const Body = z.object({
   freeText: z.string().max(40).optional(),
   role: z.string().optional(), // scene_1/2/3 等由前端指定
   charName: z.string().max(20).optional(),
+  step: z.enum(['step1', 'generate']).optional(), // two_step 第一步 / five_color 直接生成
+  palette: Palette, // 五色模式色票
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: '參數錯誤' }, { status: 400 });
-  const { lessonId, slots, freeTexts, freeText, role, charName } = parsed.data;
+  const { lessonId, slots, freeTexts, freeText, role, charName, step, palette } = parsed.data;
   const def = lessonById(lessonId);
   if (!def) return NextResponse.json({ ok: false, error: '課堂不存在' }, { status: 404 });
 
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   let assembled;
   try {
-    assembled = await assemblePrompt({ lessonId, slots, freeTexts, freeText, charName });
+    assembled = await assemblePrompt({ lessonId, slots, freeTexts, freeText, charName, step, palette });
   } catch (e) {
     const msg = String((e as Error).message);
     if (msg.includes('DISABLED')) return NextResponse.json({ ok: false, error: '導師未開放生成' }, { status: 403 });
@@ -78,6 +81,8 @@ export async function POST(req: NextRequest) {
     aspect: assembled.aspect, templateVersion: assembled.templateVersion,
     role: role ?? def.produces[0], imagesCount: settings.imagesPerGeneration,
     flagged,
+    palette, countColors: !!palette?.length,
+    params: palette?.length ? { palette } : undefined,
   });
 
   return NextResponse.json({ ok: true, jobId: job.id, promptZh: assembled.promptZh });

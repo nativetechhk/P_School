@@ -1,12 +1,16 @@
 // Prompt Engine（§4.3）：四層模板組裝。模板存 DB，admin 改完即時生效。
 import { prisma } from './db';
 
+export interface PaletteColor { zh: string; hex: string }
+
 export interface AssembleInput {
   lessonId: string;
   slots: Record<string, string>; // slot -> option itemId；或 '__FREE__'
   freeTexts?: Record<string, string>; // slot -> 學生自由字（選了「自己講」時）
   freeText?: string; // {FREE} 位置的整句補充
   charName?: string;
+  step?: 'step1' | 'step2' | 'generate' | 'edit'; // two_step / five_color 的子配置
+  palette?: PaletteColor[]; // 五色模式色票（≤5）
 }
 
 export interface AssembledPrompt {
@@ -40,21 +44,33 @@ export async function getOptionSet(setName: string, group?: 'junior' | 'senior')
   return rows;
 }
 
+interface SubConfig {
+  template?: string; aspect?: string; slots?: string[]; optionSets?: Record<string, string>; boostEn?: string;
+}
+
 export async function assemblePrompt(input: AssembleInput): Promise<AssembledPrompt> {
   const lesson = await getLessonTemplate(input.lessonId);
   if (!lesson || !lesson.enabled) throw new Error('LESSON_TEMPLATE_DISABLED');
   const ldata = (lesson.data ?? {}) as {
     aspect?: string; slots?: string[]; optionSets?: Record<string, string>; kind?: string;
+    step1?: SubConfig; step2?: SubConfig; generate?: SubConfig; edit?: SubConfig;
+    fiveColorMode?: { enabled?: boolean; templateSuffix?: string };
   };
+  // two_step / five_color：揀子配置（step1/step2/generate/edit）；否則用 lesson 頂層
+  const sub: SubConfig | null = input.step ? (ldata[input.step] ?? null) : null;
+  const template0 = sub?.template ?? lesson.promptZh ?? '';
+  const slotNames = sub?.slots ?? ldata.slots ?? [];
+  const optionSets = sub?.optionSets ?? ldata.optionSets ?? {};
+  const aspect0 = sub?.aspect ?? ldata.aspect ?? '1:1';
+  const subBoost = sub?.boostEn ?? '';
+
   const g = await getGlobalTemplate();
 
-  let template = lesson.promptZh ?? '';
+  let template = template0;
   let display = '';
-  let styleBoost = '';
-
-  const slotNames = ldata.slots ?? [];
+  let styleBoost = subBoost;
   for (const slot of slotNames) {
-    const setName = ldata.optionSets?.[slot];
+    const setName = optionSets[slot];
     const chosen = input.slots[slot];
     let promptPart = '';
     let labelPart = '';
@@ -74,16 +90,27 @@ export async function assemblePrompt(input: AssembleInput): Promise<AssembledPro
     display = display ? `${display}，${labelPart}` : labelPart;
   }
 
+  // 五色模式：senior-l4 等用 fiveColorMode.templateSuffix 追加五色約束
+  if (input.palette?.length && ldata.fiveColorMode?.enabled && ldata.fiveColorMode.templateSuffix && !template.includes('{PALETTE')) {
+    template += ldata.fiveColorMode.templateSuffix;
+  }
+
+  const paletteZh = (input.palette ?? []).map((c) => c.zh).join('、');
+  const paletteHex = (input.palette ?? []).map((c) => c.hex).join(', ');
   template = template
     .replaceAll('{FREE}', input.freeText ? `${input.freeText.slice(0, 40)}。` : '')
     .replaceAll('{CHAR_NAME}', input.charName ?? '')
+    .replaceAll('{PALETTE_ZH}', paletteZh)
+    .replaceAll('{PALETTE_HEX}', paletteHex)
+    .replaceAll('{STYLE}', '')
     .replaceAll('{STYLE_BOOST}', '');
 
   const parts = [g.prefix, template.trim(), styleBoost, g.suffix].filter(Boolean);
+  const paletteLabel = input.palette?.length ? `（5 色：${paletteZh}）` : '';
   return {
     promptSent: parts.join(' '),
-    promptZh: input.freeText ? `${display}，${input.freeText}` : display,
-    aspect: ldata.aspect ?? '1:1',
+    promptZh: (input.freeText ? `${display}，${input.freeText}` : display) + paletteLabel,
+    aspect: aspect0,
     templateVersion: lesson.version,
     styleBoost,
     kind: ldata.kind ?? 'generate',

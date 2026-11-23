@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "version": 1,
-    "description": "小小 AI 探索家 Prompt Engine 種子模板。首次啟動匯入 Firestore prompt_templates；admin 可在 /admin/prompts 逐項 enable／編輯。變數：{A}{B}{C}{D}=四格 promptZh；{FREE}=學生自由字；{STYLE}=風格層 promptZh；{STYLE_BOOST}=風格層 boostEn；{CHAR_NAME}=第3節主角名。組裝順序：global.prefix → lesson.template → style.boostEn → global.suffix。",
+    "version": 3,
+    "description": "小小 AI 探索家 Prompt Engine 種子（v2.4）。masters 為導師指定的 10 位畫家（含代表作供 hover 參考）。變數：{A}{B}{C}{D}=選項 promptZh；{FREE}=自由字；{STYLE}=風格 promptZh；{STYLE_BOOST}=風格 boostEn；{PALETTE_ZH}/{PALETTE_HEX}=五色模式色票；{CHAR_NAME}=主角名。組裝順序：global.prefix → lesson.template → style.boostEn → global.suffix。",
     "assembly_order": ["global.prefix", "lesson.template", "style.boostEn", "global.suffix"]
   },
 
@@ -16,10 +16,7 @@
 
   "lessons": {
     "senior-l3-character": {
-      "enabled": true,
-      "name": "高年級第 3 節：主角設定卡",
-      "kind": "generate",
-      "aspect": "3:4",
+      "enabled": true, "name": "高年級第 3 節：主角設定卡", "kind": "generate", "aspect": "3:4",
       "slots": ["A", "B", "C", "D"],
       "slotLabels": {"A": "我的主角（動物／奇幻角色）", "B": "佢喺邊度", "C": "細節或光線", "D": "風格"},
       "template": "{A}，喺{B}，{C}。{FREE} 全身、置中、面向觀眾、簡單乾淨背景、角色設定圖。{D}。",
@@ -27,10 +24,7 @@
       "defaultQuota": 10
     },
     "senior-l4-scene": {
-      "enabled": true,
-      "name": "高年級第 4 節：三幕場景",
-      "kind": "generate",
-      "aspect": "16:9",
+      "enabled": true, "name": "高年級第 4 節：三幕場景", "kind": "generate", "aspect": "16:9",
       "slots": ["A", "C", "D"],
       "slotLabels": {"A": "場景主題", "C": "色調（三幕）", "D": "風格"},
       "template": "{A}的廣角全景，{C}。{FREE} 畫面中央留空位、沒有任何角色、沒有動物、沒有人物、遠景、細節豐富的背景。{D}。",
@@ -41,62 +35,58 @@
         {"id": "scene_3", "label": "第 3 幕：解決", "defaultC": "tone_golden"}
       ],
       "defaultQuota": 10,
-      "notes": "D 格預設鎖定為第 3 節所選風格（可解鎖），令主角與場景風格一致。"
+      "notes": "D 格預設鎖定為第 3 節所選風格（可解鎖），令主角與場景風格一致。",
+      "fiveColorMode": {"enabled": true, "paletteSet": "colors14", "maxColors": 5, "templateSuffix": " 整幅畫只能用以下 5 種顏色：{PALETTE_ZH}（{PALETTE_HEX}）。", "countColorsWithVision": true}
     },
     "senior-l5-style": {
-      "enabled": true,
-      "name": "高年級第 5 節：大師風格轉換",
-      "kind": "edit",
-      "aspect": "keep",
-      "slots": ["STYLE"],
-      "slotLabels": {"STYLE": "揀一位大師"},
+      "enabled": true, "name": "高年級第 5 節：大師風格轉換（10 位畫家）", "kind": "edit", "aspect": "keep",
+      "slots": ["STYLE"], "slotLabels": {"STYLE": "揀一位大師"},
       "template": "請以{STYLE}的風格重新繪畫這張圖。保留原本的構圖、主體和主要顏色分佈，不要加入新的物件、人物或文字。{STYLE_BOOST}",
-      "optionSets": {"STYLE": "masters"},
-      "defaultQuota": 8,
+      "optionSets": {"STYLE": "masters"}, "defaultQuota": 8,
       "notes": "輸入為第 3、4 節作品（最多 4 張），每張計 1 次配額；全班建議統一大師。"
     },
-    "senior-l6-storybook": {
-      "enabled": true,
-      "name": "高年級第 6 節：故事書（無生圖）",
-      "kind": "compose",
+    "junior-l4-generate-style": {
+      "enabled": true, "name": "低年級第 4 節：AI 畫畫＋名畫魔術師（兩步）", "kind": "two_step",
+      "step1": {
+        "kind": "generate", "aspect": "1:1", "slots": ["A", "B", "C"],
+        "slotLabels": {"A": "咩寵物", "B": "咩顏色", "C": "喺邊度"},
+        "template": "{A}，{B}，喺{C}。{FREE} 全身、置中、簡單背景、可愛兒童繪本風格。",
+        "optionSets": {"A": "pets_junior", "B": "pet_colors_junior", "C": "environments"}
+      },
+      "step2": {
+        "kind": "edit", "slots": ["STYLE"], "slotLabels": {"STYLE": "揀一位畫家"},
+        "template": "請以{STYLE}的風格重新繪畫這張寵物圖。保留寵物的形狀、顏色和位置，不要加入文字或人物。{STYLE_BOOST}",
+        "optionSets": {"STYLE": "masters"}
+      },
+      "allowUploadAsStep1": true, "defaultQuota": 6
+    },
+    "junior-l5-fivecolor": {
+      "enabled": true, "name": "低年級第 5 節：五色魔法", "kind": "five_color",
+      "edit": {
+        "template": "請只用以下 5 種顏色重新繪畫這張圖：{PALETTE_ZH}（{PALETTE_HEX}）。保留原本的形狀和構圖，整幅畫只能出現這 5 種顏色及其深淺，不要加入其他顏色、文字或人物。",
+        "boostEn": "limited palette of exactly 5 colors, flat color areas, no gradients outside the palette"
+      },
+      "generate": {
+        "aspect": "1:1", "slots": ["A", "B", "C"],
+        "slotLabels": {"A": "咩寵物", "B": "喺邊度", "C": "風格"},
+        "template": "{A}，喺{B}，{C}。{FREE} 整幅畫只能用以下 5 種顏色：{PALETTE_ZH}（{PALETTE_HEX}）。",
+        "optionSets": {"A": "pets_junior", "B": "environments", "C": "styles"}
+      },
+      "paletteSet": "colors14", "maxColors": 5, "countColorsWithVision": true, "defaultQuota": 6
+    },
+    "junior-l6-carousel": {
+      "enabled": true, "name": "低年級第 6 節：作品輪播", "kind": "carousel",
+      "minWorks": 3, "captionVoice": true, "defaultQuota": 0,
+      "captionHint": "例如：呢個係我嘅火龍，我用咗梵谷風"
+    },
+    "senior-l6-carousel": {
+      "enabled": true, "name": "高年級第 6 節：故事插圖輪播", "kind": "carousel",
+      "minWorks": 4, "captionVoice": true, "defaultQuota": 0,
+      "orderHint": ["character", "scene_1", "scene_2", "scene_3", "ai_reflection"],
       "textTasks": {
         "summarize_script": {
-          "enabled": true,
-          "model": "gemini-2.5-flash",
+          "enabled": true, "model": "gemini-2.5-flash",
           "template": "你是小學課堂助手。以下是一位小五學生寫的三幕式劇本。請把它縮寫成 6 頁繪本旁白：第 1 頁封面只需書名；第 2 頁介紹主角；第 3–5 頁分別對應開始、危機、解決，每頁最多 2 句、每句不超過 20 個中文字；第 6 頁留空。用繁體中文，語氣活潑，不加入原文沒有的情節，不出現暴力或恐怖字眼。只輸出 JSON：{\"title\":\"\",\"pages\":[\"\",\"\",\"\",\"\",\"\"]}。\n\n劇本：\n{SCRIPT}"
-        }
-      },
-      "notes": "縮寫結果必須由學生按「用呢個」確認才寫入；學生可逐頁修改。"
-    },
-
-    "junior-l4-style": {
-      "enabled": true,
-      "name": "低年級第 4 節：名畫風寵物",
-      "kind": "edit",
-      "aspect": "keep",
-      "slots": ["STYLE"],
-      "slotLabels": {"STYLE": "揀一個畫家"},
-      "template": "請以{STYLE}的風格重新繪畫這張小朋友畫的寵物。保留寵物的形狀、顏色和位置，背景可以加上該畫家風格的簡單花紋，不要加入文字或人物。{STYLE_BOOST}",
-      "optionSets": {"STYLE": "masters_junior"},
-      "defaultQuota": 6,
-      "notes": "輸入為學生上載的第 2 節 AutoDraw PNG（pet_original）。"
-    },
-    "junior-l5-palette": {
-      "enabled": true,
-      "name": "低年級第 5 節：顏色配方（無生圖）",
-      "kind": "vision",
-      "notes": "Cloud Vision Image Properties 取 5 主色；SVG 填色器；不使用生圖模型。"
-    },
-    "junior-l6-poster": {
-      "enabled": true,
-      "name": "低年級第 6 節：電子海報（無生圖）",
-      "kind": "compose",
-      "textTasks": {
-        "polish_three_sentences": {
-          "enabled": false,
-          "model": "gemini-2.5-flash",
-          "template": "以下是一位小一至小三學生用廣東話口述的三句話，請只修正錯別字和明顯語病，保留原意和口語風格，每句不超過 15 字，用繁體中文輸出三行。\n{THREE_SENTENCES}",
-          "notes": "預設關閉：低年級保留原話更有價值；導師可按需開啟。"
         }
       }
     }
@@ -118,19 +108,18 @@
 
   "masters": {
     "_setName": "masters",
+    "notes": "導師指定 10 位。boostEn 寫實際畫風視覺描述（唔淨係靠名字），確保在世／近代畫家名字被模型降權時仍出到效果。deathYear=null 代表在世。famousWorks 供 hover 參考。",
     "items": [
-      {"id": "m_vangogh", "enabled": true, "group": "both", "icon": "🌌", "labelZh": "梵谷", "promptZh": "梵谷（Vincent van Gogh）後印象派", "boostEn": "in the style of Vincent van Gogh, swirling thick impasto brushstrokes, bold blues and yellows, expressive movement", "blurb": "彎彎曲曲嘅厚筆觸，藍黃對比"},
-      {"id": "m_monet", "enabled": true, "group": "both", "icon": "🪷", "labelZh": "莫內", "promptZh": "莫內（Claude Monet）印象派", "boostEn": "in the style of Claude Monet, impressionist, soft dappled light, loose brushwork, pastel palette", "blurb": "朦朦朧朧嘅光同色點"},
-      {"id": "m_picasso", "enabled": true, "group": "senior", "icon": "🔷", "labelZh": "畢卡索", "promptZh": "畢卡索（Pablo Picasso）立體派", "boostEn": "in the style of Pablo Picasso cubism, geometric fragmented shapes, multiple viewpoints, bold outlines", "blurb": "把物件拆成幾何塊面"},
-      {"id": "m_storybook", "enabled": true, "group": "both", "icon": "📖", "labelZh": "水彩繪本", "promptZh": "溫暖水彩兒童繪本", "boostEn": "warm watercolor children's storybook illustration, soft edges, cozy palette", "blurb": "溫柔、似故事書"}
-    ]
-  },
-  "masters_junior": {
-    "_setName": "masters_junior",
-    "items": [
-      {"id": "m_vangogh", "enabled": true, "group": "junior", "icon": "🌌", "labelZh": "梵谷", "promptZh": "梵谷後印象派", "boostEn": "in the style of Vincent van Gogh, swirling thick brushstrokes, bold blues and yellows", "blurb": "彎彎曲曲嘅筆觸"},
-      {"id": "m_monet", "enabled": true, "group": "junior", "icon": "🪷", "labelZh": "莫內", "promptZh": "莫內印象派", "boostEn": "in the style of Claude Monet, soft dappled light, pastel palette", "blurb": "朦朦朧朧好似發夢"},
-      {"id": "m_picasso", "enabled": true, "group": "junior", "icon": "🔷", "labelZh": "畢卡索", "promptZh": "畢卡索立體派", "boostEn": "in the style of Pablo Picasso cubism, playful geometric shapes, bold outlines", "blurb": "變成一舊舊幾何形"}
+      {"id": "m_vangogh", "enabled": true, "group": "both", "icon": "🌌", "labelZh": "梵谷", "en": "Vincent van Gogh", "deathYear": 1890, "promptZh": "梵谷（Vincent van Gogh）後印象派", "boostEn": "in the style of Vincent van Gogh post-impressionism, swirling thick impasto brushstrokes, bold blues and yellows, expressive swirling movement", "blurb": "彎彎曲曲嘅厚筆觸，藍黃對比", "famousWorks": [{"zh": "星夜", "year": 1889}, {"zh": "向日葵", "year": 1888}, {"zh": "隆河上的星夜", "year": 1888}]},
+      {"id": "m_monet", "enabled": true, "group": "both", "icon": "🪷", "labelZh": "莫內", "en": "Claude Monet", "deathYear": 1926, "promptZh": "莫內（Claude Monet）印象派", "boostEn": "in the style of Claude Monet impressionism, soft dappled light, loose broken brushwork, pastel palette, atmospheric", "blurb": "朦朦朧朧嘅光同色點", "famousWorks": [{"zh": "睡蓮", "year": 1906}, {"zh": "印象·日出", "year": 1872}, {"zh": "乾草堆", "year": 1891}]},
+      {"id": "m_picasso", "enabled": true, "group": "both", "icon": "🔷", "labelZh": "畢卡索", "en": "Pablo Picasso", "deathYear": 1973, "promptZh": "畢卡索（Pablo Picasso）立體派", "boostEn": "in the style of Pablo Picasso cubism, geometric fragmented shapes, multiple viewpoints at once, bold outlines", "blurb": "把嘢拆成幾何塊面", "famousWorks": [{"zh": "格爾尼卡", "year": 1937}, {"zh": "亞維農的少女", "year": 1907}, {"zh": "夢", "year": 1932}]},
+      {"id": "m_kusama", "enabled": true, "group": "both", "icon": "🔴", "labelZh": "草間彌生", "en": "Yayoi Kusama", "deathYear": null, "promptZh": "草間彌生式波點前衛藝術", "boostEn": "dense polka dot patterns covering everything, vivid repeating dots, pumpkin motifs, bold contrasting colors, avant-garde pop", "blurb": "密密麻麻嘅圓點同南瓜", "famousWorks": [{"zh": "南瓜", "year": 1994}, {"zh": "無限鏡屋", "year": 1965}, {"zh": "圓點執念", "year": 2009}]},
+      {"id": "m_warhol", "enabled": true, "group": "both", "icon": "🥫", "labelZh": "安迪·沃荷", "en": "Andy Warhol", "deathYear": 1987, "promptZh": "安迪·沃荷普普藝術", "boostEn": "pop art silkscreen style, bright flat high-contrast colors, repeated grid of the same subject, bold saturated screenprint look", "blurb": "鮮艷重複、好似海報", "famousWorks": [{"zh": "金寶湯罐頭", "year": 1962}, {"zh": "瑪麗蓮·夢露", "year": 1967}, {"zh": "香蕉", "year": 1967}]},
+      {"id": "m_dali", "enabled": true, "group": "both", "icon": "🕰️", "labelZh": "薩爾瓦多·達利", "en": "Salvador Dali", "deathYear": 1989, "promptZh": "達利超現實主義", "boostEn": "surrealism in the style of Salvador Dali, dreamlike melting objects, impossible floating landscapes, long dramatic shadows, hyper-detailed", "blurb": "好似發夢、嘢會融化", "famousWorks": [{"zh": "記憶的堅持（軟鐘）", "year": 1931}, {"zh": "龍蝦電話", "year": 1936}, {"zh": "記憶的解體", "year": 1954}]},
+      {"id": "m_qibaishi", "enabled": true, "group": "both", "icon": "🦐", "labelZh": "齊白石", "en": "Qi Baishi", "deathYear": 1957, "promptZh": "齊白石中國水墨寫意", "boostEn": "traditional Chinese ink wash painting (xieyi shuimo), minimal expressive black brush strokes on white rice paper, shrimp crabs and flowers, lots of empty space", "blurb": "水墨蝦仔、幾筆就似", "famousWorks": [{"zh": "蝦", "year": 1948}, {"zh": "蛙聲十里出山泉", "year": 1951}, {"zh": "花鳥草蟲", "year": 1945}]},
+      {"id": "m_hokusai", "enabled": true, "group": "both", "icon": "🌊", "labelZh": "葛飾北齋", "en": "Katsushika Hokusai", "deathYear": 1849, "promptZh": "葛飾北齋浮世繪木刻版畫", "boostEn": "ukiyo-e woodblock print in the style of Hokusai, flowing outlines, flat color areas, Prussian blue, great wave and Mount Fuji motifs", "blurb": "日本木刻線條、大浪", "famousWorks": [{"zh": "神奈川沖浪裏（大浪）", "year": 1831}, {"zh": "凱風快晴（赤富士）", "year": 1831}, {"zh": "富嶽三十六景", "year": 1832}]},
+      {"id": "m_murakami", "enabled": true, "group": "both", "icon": "🌸", "labelZh": "村上隆", "en": "Takashi Murakami", "deathYear": null, "promptZh": "村上隆超扁平（Superflat）風格", "boostEn": "superflat style, bright smiling cartoon flowers with faces, glossy anime-pop, flat vivid saturated colors, playful repeated characters", "blurb": "笑臉太陽花、鮮艷卡通", "famousWorks": [{"zh": "太陽花", "year": 2010}, {"zh": "Mr. DOB", "year": 1993}, {"zh": "727", "year": 1996}]},
+      {"id": "m_zhangdaqian", "enabled": true, "group": "both", "icon": "🏔️", "labelZh": "張大千", "en": "Zhang Daqian", "deathYear": 1983, "promptZh": "張大千潑墨潑彩山水", "boostEn": "Chinese splashed-ink and splashed-color landscape painting (pocai) in the style of Zhang Daqian, flowing washes of azure blue and malachite green, misty mountains, lotus", "blurb": "潑墨潑彩、大片顏色山水", "famousWorks": [{"zh": "廬山圖", "year": 1983}, {"zh": "愛痕湖", "year": 1968}, {"zh": "潑彩荷花", "year": 1975}]}
     ]
   },
 
@@ -211,8 +200,70 @@
     ]
   },
 
+  "colors14": {
+    "_setName": "colors14", "maxSelect": 5,
+    "items": [
+      {"id": "c_red", "labelZh": "紅", "hex": "#E53935"},
+      {"id": "c_orange", "labelZh": "橙", "hex": "#FB8C00"},
+      {"id": "c_yellow", "labelZh": "黃", "hex": "#FDD835"},
+      {"id": "c_green", "labelZh": "綠", "hex": "#43A047"},
+      {"id": "c_teal", "labelZh": "青", "hex": "#00ACC1"},
+      {"id": "c_blue", "labelZh": "藍", "hex": "#1E88E5"},
+      {"id": "c_navy", "labelZh": "深藍", "hex": "#1A237E"},
+      {"id": "c_purple", "labelZh": "紫", "hex": "#8E24AA"},
+      {"id": "c_pink", "labelZh": "粉紅", "hex": "#F48FB1"},
+      {"id": "c_brown", "labelZh": "啡", "hex": "#6D4C41"},
+      {"id": "c_black", "labelZh": "黑", "hex": "#212121"},
+      {"id": "c_white", "labelZh": "白", "hex": "#FAFAFA"},
+      {"id": "c_grey", "labelZh": "灰", "hex": "#9E9E9E"},
+      {"id": "c_gold", "labelZh": "金", "hex": "#C9A227"}
+    ]
+  },
+
+  "pets_junior": {
+    "_setName": "pets_junior",
+    "items": [
+      {"id": "p_cat", "enabled": true, "group": "junior", "icon": "🐱", "labelZh": "貓", "promptZh": "一隻圓圓眼睛的可愛卡通貓"},
+      {"id": "p_dog", "enabled": true, "group": "junior", "icon": "🐶", "labelZh": "狗", "promptZh": "一隻搖尾巴的可愛卡通小狗"},
+      {"id": "p_rabbit", "enabled": true, "group": "junior", "icon": "🐰", "labelZh": "兔仔", "promptZh": "一隻長耳朵的可愛卡通兔子"},
+      {"id": "p_dragon", "enabled": true, "group": "junior", "icon": "🐉", "labelZh": "小龍", "promptZh": "一條友善的卡通小龍，短短的翅膀"},
+      {"id": "p_unicorn", "enabled": true, "group": "junior", "icon": "🦄", "labelZh": "獨角獸", "promptZh": "一隻彩虹鬃毛的小獨角獸"},
+      {"id": "p_robot", "enabled": true, "group": "junior", "icon": "🤖", "labelZh": "機械寵物", "promptZh": "一隻圓滾滾會發光的小機械寵物"},
+      {"id": "p_fish", "enabled": true, "group": "junior", "icon": "🐠", "labelZh": "魚", "promptZh": "一條七彩的卡通小魚"},
+      {"id": "p_bird", "enabled": true, "group": "junior", "icon": "🐦", "labelZh": "雀仔", "promptZh": "一隻胖胖的可愛卡通小鳥"},
+      {"id": "p_panda", "enabled": true, "group": "junior", "icon": "🐼", "labelZh": "熊貓", "promptZh": "一隻抱著竹子的卡通熊貓"},
+      {"id": "p_monster", "enabled": true, "group": "junior", "icon": "👾", "labelZh": "小怪獸", "promptZh": "一隻毛茸茸、三隻眼、笑瞇瞇的友善小怪獸"}
+    ]
+  },
+
+  "pet_colors_junior": {
+    "_setName": "pet_colors_junior",
+    "items": [
+      {"id": "pc_red", "enabled": true, "group": "junior", "icon": "🔴", "labelZh": "紅色", "promptZh": "主要是紅色"},
+      {"id": "pc_blue", "enabled": true, "group": "junior", "icon": "🔵", "labelZh": "藍色", "promptZh": "主要是藍色"},
+      {"id": "pc_yellow", "enabled": true, "group": "junior", "icon": "🟡", "labelZh": "黃色", "promptZh": "主要是黃色"},
+      {"id": "pc_green", "enabled": true, "group": "junior", "icon": "🟢", "labelZh": "綠色", "promptZh": "主要是綠色"},
+      {"id": "pc_purple", "enabled": true, "group": "junior", "icon": "🟣", "labelZh": "紫色", "promptZh": "主要是紫色"},
+      {"id": "pc_rainbow", "enabled": true, "group": "junior", "icon": "🌈", "labelZh": "彩虹色", "promptZh": "七彩繽紛的彩虹色"},
+      {"id": "pc_pink", "enabled": true, "group": "junior", "icon": "🩷", "labelZh": "粉紅色", "promptZh": "主要是粉紅色"},
+      {"id": "pc_gold", "enabled": true, "group": "junior", "icon": "⭐", "labelZh": "金色", "promptZh": "閃閃發光的金色"}
+    ]
+  },
+
   "voice_hints": {
     "notes": "語音辨識結果用 gemini-2.5-flash 對應到選項：",
     "matchTemplate": "學生用廣東話說了：「{TRANSCRIPT}」。以下是可選項目（id：中文名）：\n{OPTIONS}\n請回傳最接近的 3 個 id，JSON 陣列，由最接近排到最不接近。如果學生說的內容是人類（男孩、女孩、人、同學等），回傳 [\"__HUMAN__\"]。如果完全對不上任何選項，回傳 [\"__FREE__\"]。"
+  },
+
+  "carousel_html": {
+    "notes": "自包含 HTML 範本要求",
+    "requirements": [
+      "單一 .html 檔，圖片以 base64 內嵌（或 ZIP 內相對路徑 images/），不依賴外部 CDN",
+      "自動輪播（預設 6 秒）、左右箭頭、鍵盤 ←→、暫停鈕、全螢幕鈕",
+      "每張右側／下方資訊卡：課堂名、中文 prompt、畫家或 5 色色塊、來源作品縮圖、學生旁白、日期",
+      "首張為封面（暱稱／帳號、班別、課程名）；末張為「我學到的 AI」",
+      "字體 ≥ 20px，1280×720 與 1920×1080 投影皆正常；繁體中文系統字體 fallback",
+      "不含真名、不含任何外部追蹤"
+    ]
   }
 }

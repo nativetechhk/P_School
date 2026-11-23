@@ -30,6 +30,8 @@ export interface GenerateJobData {
   sourceArtifactId?: string; // edit 模式
   flagged?: boolean; // 黑名單「只標記」命中
   params?: Record<string, unknown>;
+  palette?: { zh: string; hex: string }[]; // 五色模式色票
+  countColors?: boolean; // 生成後用 Vision 數主色，超過 5 色標示
 }
 
 export async function enqueueGeneration(data: GenerateJobData) {

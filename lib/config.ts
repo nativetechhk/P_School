@@ -1,12 +1,14 @@
 // 平台常量與課堂模組註冊（§5）
 export type Group = 'junior' | 'senior';
 
+export type LessonKind = 'generate' | 'edit' | 'vision' | 'compose' | 'two_step' | 'five_color' | 'carousel';
+
 export interface LessonDef {
   id: string;
   group: Group;
   lessonNo: number;
   title: string;
-  kind: 'generate' | 'edit' | 'vision' | 'compose';
+  kind: LessonKind;
   aspect?: '3:4' | '16:9' | '1:1' | 'keep';
   consumes: string[]; // 承接的 artifact roles
   produces: string[];
@@ -27,27 +29,35 @@ export const LESSONS: LessonDef[] = [
     kind: 'edit', aspect: 'keep', consumes: ['character', 'scene_1', 'scene_2', 'scene_3'], produces: ['styled'], defaultQuota: 8,
   },
   {
-    id: 'senior-l6-storybook', group: 'senior', lessonNo: 6, title: '我的 AI 故事書',
-    kind: 'compose', consumes: ['character', 'character_card', 'scene_1', 'scene_2', 'scene_3', 'styled'], produces: ['storybook'], defaultQuota: 0,
+    id: 'senior-l6-carousel', group: 'senior', lessonNo: 6, title: '故事插圖輪播',
+    kind: 'carousel', consumes: ['character', 'character_card', 'scene_1', 'scene_2', 'scene_3', 'styled'], produces: ['carousel'], defaultQuota: 0,
   },
   {
-    id: 'junior-l4-style', group: 'junior', lessonNo: 4, title: '名畫風寵物',
-    // pet_original 由上載建立（非 AI 生成）；AI 編輯輸出為 styled_pet，故 produces[0] 必須係 styled_pet
-    kind: 'edit', aspect: 'keep', consumes: ['pet_original'], produces: ['styled_pet'], defaultQuota: 6,
+    id: 'junior-l4-generate-style', group: 'junior', lessonNo: 4, title: 'AI 畫畫＋名畫魔術師',
+    // Step1 文生圖 → pet_original；Step2 圖生圖 → styled_pet
+    kind: 'two_step', aspect: '1:1', consumes: [], produces: ['pet_original', 'styled_pet'], defaultQuota: 6,
   },
   {
-    id: 'junior-l5-palette', group: 'junior', lessonNo: 5, title: '顏色配方',
-    kind: 'vision', consumes: ['styled_pet', 'pet_original'], produces: ['palette', 'coloring'], defaultQuota: 0,
+    id: 'junior-l5-fivecolor', group: 'junior', lessonNo: 5, title: '五色魔法',
+    kind: 'five_color', aspect: '1:1', consumes: ['styled_pet', 'pet_original'], produces: ['five_color'], defaultQuota: 6,
   },
   {
-    id: 'junior-l6-poster', group: 'junior', lessonNo: 6, title: '我的魔法寵物海報',
-    kind: 'compose', consumes: ['pet_original', 'styled_pet', 'coloring', 'palette'], produces: ['poster'], defaultQuota: 0,
+    id: 'junior-l6-carousel', group: 'junior', lessonNo: 6, title: '作品輪播',
+    kind: 'carousel', consumes: ['pet_original', 'styled_pet', 'five_color'], produces: ['carousel'], defaultQuota: 0,
   },
 ];
 
 export function lessonById(id: string): LessonDef | undefined {
   return LESSONS.find((l) => l.id === id);
 }
+
+// 舊 → 新 課堂 ID 對應（v2.3 → v2.4 migration）
+export const LESSON_ID_MIGRATION: Record<string, string> = {
+  'senior-l6-storybook': 'senior-l6-carousel',
+  'junior-l4-style': 'junior-l4-generate-style',
+  'junior-l5-palette': 'junior-l5-fivecolor',
+  'junior-l6-poster': 'junior-l6-carousel',
+};
 
 export const DEFAULT_SETTINGS = {
   dailyCapPerAccount: 20,
