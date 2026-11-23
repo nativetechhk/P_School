@@ -61,14 +61,27 @@ sudo systemctl reload caddy
 
 ## 更新部署
 
+以 fresh clone + rsync（**必須 `--delete`**，否則 repo 已刪除的檔案會殘留並被重新編譯）：
+
 ```bash
+rm -rf /tmp/P_School && git clone --depth 1 https://github.com/nativetechhk/P_School.git /tmp/P_School
+# --delete 會清走 repo 已移除的檔案；excludes 保護 node_modules/.next/dist/data/.env
+rsync -a --delete --exclude ".git" --exclude "node_modules" --exclude ".next" --exclude "dist" --exclude "/data/" --exclude ".env" /tmp/P_School/ /opt/pschool/
 cd /opt/pschool
-sudo -u pschool git pull
-sudo -u pschool bash -lc 'pnpm install --prod=false && pnpm prisma migrate deploy && pnpm build && pnpm worker:build'
-sudo -u pschool cp -r /opt/pschool/.next/static /opt/pschool/.next/standalone/.next/
-sudo -u pschool cp -r /opt/pschool/public /opt/pschool/.next/standalone/
-sudo systemctl restart pschool-web pschool-worker
+corepack pnpm install --no-frozen-lockfile && corepack pnpm prisma generate && corepack pnpm prisma migrate deploy
+NODE_OPTIONS=--max-old-space-size=2048 corepack pnpm build && corepack pnpm worker:build
+cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
+chown -R pschool:pschool /opt/pschool
+systemctl restart pschool-web pschool-worker
 ```
+
+### 更新 prompt 模板（例如改畫家）
+`corepack pnpm exec tsx prisma/seed.ts --prod` 會以 overwrite 匯入 `content/prompt_templates.seed.json` 並清走已移除的選項集。
+⚠️ 此指令會 upsert 一個預設 `admin@example.com` staff（ADMIN_EMAIL 預設值）——跑完請刪除，避免預設帳號殘留：
+`psql ... -c "DELETE FROM staff WHERE email='admin@example.com';"`（正式 admin 帳號為 `admin`）。
+
+### v2.3 → v2.4 課堂 ID 遷移（一次性，已於上線時執行）
+`corepack pnpm exec tsx scripts/migrate-lesson-ids.ts`（把舊 lesson_access/artifacts/quota 的課堂 ID 改成新 ID）。
 
 ## API key
 部署時 `.env` 的 `GEMINI_API_KEY` 可留空；登入 `/admin/settings` 貼上 key 即可（DB 優先、免重啟、可隨時更換／清除）。
